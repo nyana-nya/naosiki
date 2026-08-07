@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI LINEスタンプメーカー - 1枚の絵から10個のスタンプを作成</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- JSZip for batch downloads -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- Google Fonts (Inter & Noto Sans JP) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans JP"', 'Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        line: {
+                            DEFAULT: '#06C755',
+                            hover: '#05b34c',
+                            light: '#e6f8ed',
+                            dark: '#048f3d'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbars and animations */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .sticker-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .sticker-card:hover {
+            transform: translateY(-4px);
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 flex flex-col font-sans">
+
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-line flex items-center justify-center text-white shadow-md shadow-line/20">
+                    <i class="fa-solid fa-[#06C755] fa-face-smile-wink text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg sm:text-xl text-slate-900 leading-tight">AI LINEスタンプメーカー</h1>
+                    <p class="text-xs text-slate-500 font-medium">1枚のイラストから10種類のスタンプを無料生成</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                    <span class="w-2 h-2 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Gemini 3.1 AI搭載
+                </span>
+                
+                <!-- API Key Management Modal Trigger (Instructor / Emergency) -->
+                <button id="apiKeyBtn" title="APIキー設定（講師用）" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center">
+                    <i class="fa-solid fa-key text-amber-500 mr-1.5"></i>
+                    <span id="apiKeyBtnText">APIキー設定</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+
+        <!-- Step 1: Image Upload & Preset Settings Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Column: Image Uploader -->
+            <div class="lg:col-span-5 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-slate-900 flex items-center">
+                        <span class="w-6 h-6 rounded-full bg-line text-white text-xs flex items-center justify-center mr-2">1</span>
+                        元イラストをアップロード
+                    </h2>
+                    <span class="text-xs text-slate-500">PNG / JPG (正方形推奨)</span>
+                </div>
+
+                <!-- Dropzone Area -->
+                <div id="dropzone" class="border-2 border-dashed border-slate-300 hover:border-line rounded-xl p-6 transition-all duration-200 text-center flex-1 flex flex-col justify-center items-center cursor-pointer bg-slate-50/50 hover:bg-line-light/30 group min-h-[260px] relative overflow-hidden">
+                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+                    
+                    <!-- Default Placeholder View -->
+                    <div id="uploadPlaceholder" class="space-y-3 flex flex-col items-center">
+                        <div class="w-16 h-16 rounded-full bg-emerald-50 group-hover:bg-line-light text-line flex items-center justify-center transition-colors">
+                            <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-sm text-slate-700 group-hover:text-line">画像をドラッグ＆ドロップ</p>
+                            <p class="text-xs text-slate-400 mt-1">またはクリックしてファイルを選択</p>
+                        </div>
+                        <div class="text-[11px] text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">
+                            キャラクター全体の絵がはっきり見える画像がおすすめ
+                        </div>
+                    </div>
+
+                    <!-- Image Preview View (Hidden by default) -->
+                    <div id="previewContainer" class="hidden w-full h-full relative flex flex-col items-center justify-center">
+                        <img id="sourcePreview" class="max-h-64 object-contain rounded-lg shadow-sm" alt="アップロード画像">
+                        <button id="removeImageBtn" type="button" class="absolute top-2 right-2 bg-slate-900/70 hover:bg-rose-600 text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors shadow-md">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-xs text-slate-500 space-y-1">
+                    <p><i class="fa-solid fa-circle-info text-line mr-1"></i> キャラクターの顔や特徴がわかりやすいイラストを使うと、完成度が高くなります。</p>
+                </div>
+            </div>
+
+            <!-- Right Column: Simple Action Card -->
+            <div class="lg:col-span-7 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="space-y-4">
+                    <h2 class="text-base font-bold text-slate-900 flex items-center">
+                        <span class="w-6 h-6 rounded-full bg-line text-white text-xs flex items-center justify-center mr-2">2</span>
+                        スタンプ生成の実行
+                    </h2>
+                    
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-3">
+                        <div class="flex items-start space-x-3">
+                            <div class="p-2 bg-emerald-100 text-line rounded-lg mt-0.5">
+                                <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
+                            </div>
+                            <div class="text-xs text-slate-600 space-y-1">
+                                <p class="font-bold text-slate-800 text-sm">自動でバリエーション豊かな10個の表情を作成</p>
+                                <p>「感謝・笑顔」「大喜び」「了解」「お願い・ありがとう」「怒り」「悲しみ」「驚き」「応援」「おやすみ」「お祝い」の10種類の表情スタンプを生成します。</p>
+                                <p class="text-slate-400">※すべて「文字なし」「白背景」「イラストのみ」で出力されます。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generate Action Button -->
+                <div class="mt-6 pt-4 border-t border-slate-100 flex flex-col items-center justify-center space-y-3">
+                    <button id="generateAllBtn" disabled class="w-full py-4 bg-line hover:bg-line-hover disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-extrabold rounded-xl shadow-lg shadow-line/20 hover:shadow-line/30 transition-all flex items-center justify-center text-base">
+                        <i class="fa-solid fa-wand-magic-sparkles text-lg mr-2"></i>
+                        10個のスタンプを生成する
+                    </button>
+                    <p class="text-[11px] text-slate-400 text-center">画像アップロード後にボタンが有効化されます</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar Section (Visible during processing) -->
+        <div id="progressSection" class="hidden bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center space-x-3">
+                    <div class="animate-spin text-line">
+                        <i class="fa-solid fa-circle-notch text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800" id="progressTitle">AIスタンプを生成中...</p>
+                        <p class="text-xs text-slate-500" id="progressSub">画風を分析し、10種類の異なる表情イラストを生成しています</p>
+                    </div>
+                </div>
+                <span class="font-bold text-line text-lg" id="progressPercent">0 / 10</span>
+            </div>
+            
+            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                <div id="progressBar" class="bg-line h-full transition-all duration-300 rounded-full w-0"></div>
+            </div>
+        </div>
+
+        <!-- Step 3: Generated Stickers Grid -->
+        <div class="space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-extrabold text-slate-900 flex items-center">
+                        <i class="fa-solid fa-images text-line mr-2"></i>
+                        出来上がったスタンプ（全10個）
+                    </h2>
+                    <p class="text-xs text-slate-500">LINEスタンプの標準サイズ（370×320px）に最適化されてダウンロードされます</p>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <button id="downloadZipBtn" disabled class="px-4 py-2 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 text-white font-bold rounded-lg text-xs transition-colors flex items-center shadow-sm">
+                        <i class="fa-solid fa-file-zipper mr-1.5"></i>
+                        全10個をまとめてZIPで保存
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stickers Display Grid -->
+            <div id="stickersGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                <!-- 10 Card Skeletons or Generated Stickers -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <!-- Image Preview Modal -->
+    <div id="imageModal" class="fixed inset-0 z-50 hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl relative">
+            <button id="closeModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <h3 id="modalTitle" class="font-bold text-lg text-slate-800">スタンププレビュー</h3>
+            <div class="bg-slate-100 rounded-xl p-4 flex items-center justify-center min-h-[280px]">
+                <img id="modalImage" class="max-h-72 object-contain rounded-lg shadow-md" alt="Preview">
+            </div>
+            <div class="flex justify-end space-x-3 pt-2">
+                <button id="modalDownloadBtn" class="px-5 py-2.5 bg-line hover:bg-line-hover text-white font-bold text-sm rounded-xl flex items-center shadow-md">
+                    <i class="fa-solid fa-download mr-2"></i>このスタンプを保存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Key Input Modal for Instructor/Custom Test -->
+    <div id="apiKeyModal" class="fixed inset-0 z-50 hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative">
+            <button id="closeApiKeyModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                    <i class="fa-solid fa-key text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-base text-slate-800">Gemini APIキーの設定</h3>
+                    <p class="text-xs text-slate-500">コード埋め込みまたはここからの直接入力が可能です</p>
+                </div>
+            </div>
+            
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-700 block">APIキー (Google AI Studioで取得)</label>
+                <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-line">
+                <p class="text-[11px] text-slate-400">コード内の <code class="bg-slate-100 px-1 rounded text-rose-500 font-mono">EMBEDDED_API_KEY</code> に直接書くか、ここで保存すると優先して使われます。</p>
+            </div>
+
+            <div class="flex justify-between items-center pt-2">
+                <button id="clearApiKeyBtn" class="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition-colors font-medium">
+                    クリア
+                </button>
+                <div class="flex space-x-2">
+                    <button id="saveApiKeyBtn" class="px-4 py-2 bg-line hover:bg-line-hover text-white font-bold text-xs rounded-xl shadow-md transition-colors">
+                        設定を保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        // =========================================================================
+        // 【講師用設定】ここに取得したGemini APIキー（無料）を貼り付けて公開してください。
+        // 受講生はキーの入力なしでWebサイトを開くだけでそのまま使えます。
+        // 例: const EMBEDDED_API_KEY = "AIzaSyXXXXXX...";
+        // =========================================================================
+        const EMBEDDED_API_KEY = "AQ.Ab8RN6K9HLPZXQ8I1tLCbMSraDwd5lq6yp6F1aK4YCFQyEw6kg";
+
+        // Function to get active API key
+        function getActiveApiKey() {
+            const customKey = localStorage.getItem('custom_gemini_api_key');
+            if (customKey && customKey.trim() !== '') {
+                return customKey.trim();
+            }
+            return EMBEDDED_API_KEY.trim();
+        }
+
+        // Default 10 LINE Stamp Presets (Emotion only, No text)
+        const DEFAULT_PRESETS = [
+            { id: 1, name: '感謝・笑顔', prompt: 'Happy joyful smiling face, expressing warm heartfelt happiness, bright cheerful posture' },
+            { id: 2, name: '大喜び', prompt: 'Super happy excited expressive face, jumping with joy, big sparkling eyes' },
+            { id: 3, name: '了解・ウインク', prompt: 'Confident smiling winking face giving a thumbs up or OK pose' },
+            { id: 4, name: 'お願い・ありがとう', prompt: 'Pleading hopeful eyes with hands together in prayer or thank you pose, expressing earnest request or grateful appreciation' },
+            { id: 5, name: 'ぷんぷん・怒り', prompt: 'Comically angry pouting face with puffed cheeks, angry anime mood style' },
+            { id: 6, name: 'しくしく・悲しみ', prompt: 'Sad crying face with big tear drops, comical dramatic sorrow expression' },
+            { id: 7, name: 'びっくり・驚き', prompt: 'Shocked surprised face, wide opened eyes and mouth, surprised pose' },
+            { id: 8, name: '応援・ファイト', prompt: 'Enthusiastic energetic cheering posture with clenched fists raised' },
+            { id: 9, name: 'あくび・おやすみ', prompt: 'Sleepy cute yawning face, rubbing eyes, relaxed night atmosphere' },
+            { id: 10, name: 'お祝い・パーティ', prompt: 'Festive celebrating face with popping confetti or holding a small party item' }
+        ];
+
+        // State Management
+        let currentPresets = JSON.parse(JSON.stringify(DEFAULT_PRESETS));
+        let sourceImageDataUrl = null;
+        let generatedStickers = Array(10).fill(null); // Stores base64 data strings for generated stickers
+        let isGenerating = false;
+
+        // DOM Element Cache
+        const dropzone = document.getElementById('dropzone');
+        const imageInput = document.getElementById('imageInput');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const previewContainer = document.getElementById('previewContainer');
+        const sourcePreview = document.getElementById('sourcePreview');
+        const removeImageBtn = document.getElementById('removeImageBtn');
+        const generateAllBtn = document.getElementById('generateAllBtn');
+        const progressSection = document.getElementById('progressSection');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressTitle = document.getElementById('progressTitle');
+        const stickersGrid = document.getElementById('stickersGrid');
+        const downloadZipBtn = document.getElementById('downloadZipBtn');
+
+        // Modal Elements
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const modalTitle = document.getElementById('modalTitle');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const modalDownloadBtn = document.getElementById('modalDownloadBtn');
+        let currentModalIndex = null;
+
+        // API Key Modal Elements
+        const apiKeyBtn = document.getElementById('apiKeyBtn');
+        const apiKeyModal = document.getElementById('apiKeyModal');
+        const closeApiKeyModalBtn = document.getElementById('closeApiKeyModalBtn');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+        const clearApiKeyBtn = document.getElementById('clearApiKeyBtn');
+        const apiKeyBtnText = document.getElementById('apiKeyBtnText');
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            renderEmptyStickersGrid();
+            setupEventListeners();
+            updateApiKeyUIState();
+        });
+
+        function updateApiKeyUIState() {
+            const key = getActiveApiKey();
+            if (key) {
+                apiKeyBtnText.innerText = "APIキー設定済";
+            } else {
+                apiKeyBtnText.innerText = "APIキー未設定";
+            }
+        }
+
+        // Render initial 10 empty sticker cards
+        function renderEmptyStickersGrid() {
+            if (!stickersGrid) return;
+            stickersGrid.innerHTML = '';
+            currentPresets.forEach((preset, index) => {
+                const card = document.createElement('div');
+                card.id = `sticker-card-${index}`;
+                card.className = 'sticker-card bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex flex-col justify-between items-center space-y-2 h-56 relative overflow-hidden';
+                
+                if (generatedStickers[index]) {
+                    card.innerHTML = `
+                        <div class="w-full flex justify-between items-center text-xs">
+                            <span class="font-bold text-slate-700 text-[11px]">No.${index + 1} ${preset.name}</span>
+                        </div>
+                        <div class="w-full flex-1 bg-white rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center relative group cursor-pointer" onclick="openPreviewModal(${index})">
+                            <img src="${generatedStickers[index]}" class="w-full h-full object-contain p-1" alt="Sticker ${index + 1}">
+                            <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold space-x-1">
+                                <i class="fa-solid fa-magnifying-glass-plus"></i>
+                                <span>拡大</span>
+                            </div>
+                        </div>
+                        <div class="w-full flex space-x-1.5">
+                            <button onclick="downloadSingleSticker(${index})" class="flex-1 py-1.5 bg-line hover:bg-line-hover text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center justify-center">
+                                <i class="fa-solid fa-download mr-1"></i>保存
+                            </button>
+                            <button onclick="regenerateSingleSticker(${index})" title="再生成" class="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-colors">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="w-full flex justify-between items-center text-xs">
+                            <span class="font-bold text-slate-700 text-[11px]">No.${index + 1} ${preset.name}</span>
+                        </div>
+                        <div class="w-full flex-1 bg-slate-50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 p-2 text-center">
+                            <i class="fa-solid fa-face-smile text-2xl mb-1 text-slate-300"></i>
+                            <span class="text-[10px] text-slate-400 font-medium">${preset.name}</span>
+                        </div>
+                        <div class="w-full flex space-x-1.5 opacity-50 pointer-events-none">
+                            <button disabled class="flex-1 py-1.5 bg-slate-200 text-slate-400 rounded-lg text-xs font-bold flex items-center justify-center">
+                                <i class="fa-solid fa-download mr-1"></i>保存
+                            </button>
+                        </div>
+                    `;
+                }
+                stickersGrid.appendChild(card);
+            });
+        }
+
+        // File Upload Handlers
+        function setupEventListeners() {
+            // Drag and drop events
+            dropzone.addEventListener('click', (e) => {
+                // Prevent infinite click bubbling loop
+                if (e.target !== imageInput) {
+                    imageInput.click();
+                }
+            });
+
+            imageInput.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('border-line', 'bg-line-light/40');
+            });
+            dropzone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('border-line', 'bg-line-light/40');
+            });
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('border-line', 'bg-line-light/40');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleImageFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            imageInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    handleImageFile(e.target.files[0]);
+                }
+            });
+
+            removeImageBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                resetImage();
+            });
+
+            generateAllBtn.addEventListener('click', startBatchGeneration);
+            downloadZipBtn.addEventListener('click', downloadAllZip);
+
+            // Modal Controls
+            closeModalBtn.addEventListener('click', () => imageModal.classList.add('hidden'));
+            imageModal.addEventListener('click', (e) => {
+                if (e.target === imageModal) imageModal.classList.add('hidden');
+            });
+            modalDownloadBtn.addEventListener('click', () => {
+                if (currentModalIndex !== null && generatedStickers[currentModalIndex]) {
+                    downloadSingleSticker(currentModalIndex);
+                }
+            });
+
+            // API Key Modal Listeners
+            apiKeyBtn.addEventListener('click', () => {
+                apiKeyInput.value = localStorage.getItem('custom_gemini_api_key') || '';
+                apiKeyModal.classList.remove('hidden');
+            });
+            closeApiKeyModalBtn.addEventListener('click', () => apiKeyModal.classList.add('hidden'));
+            apiKeyModal.addEventListener('click', (e) => {
+                if (e.target === apiKeyModal) apiKeyModal.classList.add('hidden');
+            });
+            saveApiKeyBtn.addEventListener('click', () => {
+                const val = apiKeyInput.value.trim();
+                if (val) {
+                    localStorage.setItem('custom_gemini_api_key', val);
+                    showToast('APIキーをブラウザに保存しました', 'success');
+                } else {
+                    localStorage.removeItem('custom_gemini_api_key');
+                }
+                updateApiKeyUIState();
+                apiKeyModal.classList.add('hidden');
+            });
+            clearApiKeyBtn.addEventListener('click', () => {
+                localStorage.removeItem('custom_gemini_api_key');
+                apiKeyInput.value = '';
+                updateApiKeyUIState();
+                showToast('保存されたカスタムAPIキーを削除しました', 'info');
+            });
+        }
+
+        function handleImageFile(file) {
+            if (!file.type || !file.type.startsWith('image/')) {
+                showToast('画像ファイル(PNG/JPGなど)を選択してください', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                sourceImageDataUrl = e.target.result;
+                sourcePreview.src = sourceImageDataUrl;
+                uploadPlaceholder.classList.add('hidden');
+                previewContainer.classList.remove('hidden');
+                generateAllBtn.disabled = false;
+                showToast('画像を読み込みました！スタンプ生成を実行できます', 'success');
+            };
+            reader.onerror = () => {
+                showToast('画像の読み込みに失敗しました。別の画像をお試しください。', 'error');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetImage() {
+            sourceImageDataUrl = null;
+            imageInput.value = '';
+            uploadPlaceholder.classList.remove('hidden');
+            previewContainer.classList.add('hidden');
+            generateAllBtn.disabled = true;
+        }
+
+        // Core API Generation Handler (gemini-3.1-flash-image-preview)
+        async function generateSingleStickerAPI(base64Image, preset) {
+            const apiKey = getActiveApiKey(); // Uses EMBEDDED_API_KEY, custom key, or runtime default
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`;
+
+            // Remove Base64 Header Data URL
+            const rawBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
+
+            // Construct exact Image-to-Image prompt targeting White Background & NO TEXT
+            const promptText = `
+                Generate a clean sticker illustration based strictly on the character in the provided input image.
+                
+                STRICT REQUIREMENTS:
+                1. CHARACTER MATCHING: Keep the exact character design, facial features, hair style, color scheme, art style, and clothing from the input image.
+                2. EXPRESSION & POSE: Draw the character with the following mood and pose: "${preset.prompt}".
+                3. BACKGROUND: SOLID PLAIN WHITE BACKGROUND (#FFFFFF). Clean, pure white backdrop with absolutely no patterns, gradients, or shadows on the background.
+                4. NO TEXT: NO TEXT AT ALL. NO WORDS, NO JAPANESE/ENGLISH LETTERS, NO SPEECH BUBBLE TEXT, NO TYPOGRAPHY, NO WRITING, NO SYMBOLS. ONLY THE CHARACTER ILLUSTRATION.
+                5. STYLE: High quality digital sticker illustration, crisp clean line art, vivid colors, well-centered composition.
+            `;
+
+            const payload = {
+                contents: [{
+                    role: 'user',
+                    parts: [
+                        { text: promptText },
+                        {
+                            inlineData: {
+                                mimeType: 'image/png',
+                                data: rawBase64
+                            }
+                        }
+                    ]
+                }],
+                generationConfig: {
+                    responseModalities: ['IMAGE'],
+                    imageConfig: {
+                        aspectRatio: "1:1"
+                    }
+                }
+            };
+
+            // Implement exponential backoff retry
+            let retries = 0;
+            const maxRetries = 3;
+
+            while (retries <= maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 400 || response.status === 403) {
+                            throw new Error(`APIキーが無効または設定されていません。コード内のEMBEDDED_API_KEYに無料キーを入力するか、画面右上の「APIキー設定」から設定してください。`);
+                        }
+                        throw new Error(`API response failed with status ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const part = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+
+                    if (part && part.inlineData && part.inlineData.data) {
+                        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                    } else {
+                        throw new Error('Image data not returned in response');
+                    }
+                } catch (error) {
+                    retries++;
+                    if (retries > maxRetries || error.message.includes('APIキーが無効')) {
+                        console.error('Error generating sticker:', error);
+                        throw error;
+                    }
+                    // Delay before retry (1s, 2s, 4s...)
+                    await new Promise(res => setTimeout(res, Math.pow(2, retries) * 1000));
+                }
+            }
+        }
+
+        // Batch Generation Controller
+        async function startBatchGeneration() {
+            if (!sourceImageDataUrl || isGenerating) return;
+
+            isGenerating = true;
+            generateAllBtn.disabled = true;
+            progressSection.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            progressPercent.innerText = '0 / 10';
+            generatedStickers = Array(10).fill(null);
+            downloadZipBtn.disabled = true;
+
+            renderEmptyStickersGrid();
+            showToast('10個のイラストスタンプ生成を開始しました！', 'info');
+
+            let completedCount = 0;
+
+            // Process items sequentially to prevent API rate limiting
+            for (let i = 0; i < 10; i++) {
+                const preset = currentPresets[i];
+                const cardEl = document.getElementById(`sticker-card-${i}`);
+
+                // Update card UI to loading state
+                cardEl.querySelector('.flex-1').innerHTML = `
+                    <div class="flex flex-col items-center justify-center space-y-2">
+                        <i class="fa-solid fa-spinner animate-spin text-line text-2xl"></i>
+                        <span class="text-[11px] text-slate-500 font-bold">生成中...</span>
+                    </div>
+                `;
+
+                try {
+                    const resultImageBase64 = await generateSingleStickerAPI(sourceImageDataUrl, preset);
+                    generatedStickers[i] = resultImageBase64;
+                    updateStickerCardUI(i, resultImageBase64);
+                } catch (err) {
+                    console.error(`Failed generating sticker #${i + 1}`, err);
+                    updateStickerCardErrorUI(i);
+                }
+
+                completedCount++;
+                const percent = Math.round((completedCount / 10) * 100);
+                progressBar.style.width = `${percent}%`;
+                progressPercent.innerText = `${completedCount} / 10`;
+            }
+
+            isGenerating = false;
+            generateAllBtn.disabled = false;
+            progressTitle.innerText = '生成が完了しました！';
+            showToast('すべてのスタンプ生成が完了しました！', 'success');
+
+            if (generatedStickers.some(img => img !== null)) {
+                downloadZipBtn.disabled = false;
+            }
+        }
+
+        // Single Sticker Regeneration Handler
+        async function regenerateSingleSticker(index) {
+            if (!sourceImageDataUrl || isGenerating) return;
+
+            const preset = currentPresets[index];
+            const cardEl = document.getElementById(`sticker-card-${index}`);
+
+            cardEl.querySelector('.flex-1').innerHTML = `
+                <div class="flex flex-col items-center justify-center space-y-2">
+                    <i class="fa-solid fa-spinner animate-spin text-line text-2xl"></i>
+                    <span class="text-[11px] text-slate-500 font-bold">再生成中...</span>
+                </div>
+            `;
+
+            try {
+                const resultImageBase64 = await generateSingleStickerAPI(sourceImageDataUrl, preset);
+                generatedStickers[index] = resultImageBase64;
+                updateStickerCardUI(index, resultImageBase64);
+                showToast(`スタンプ #${index + 1} を再生成しました`, 'success');
+                downloadZipBtn.disabled = false;
+            } catch (err) {
+                console.error(`Regeneration failed for #${index + 1}`, err);
+                updateStickerCardErrorUI(index);
+                showToast(`スタンプ #${index + 1} の生成に失敗しました`, 'error');
+            }
+        }
+
+        // Update Card UI on Successful Generation
+        function updateStickerCardUI(index, imageBase64) {
+            const cardEl = document.getElementById(`sticker-card-${index}`);
+            cardEl.innerHTML = `
+                <div class="w-full flex justify-between items-center text-xs">
+                    <span class="font-bold text-slate-700 text-[11px]">No.${index + 1} ${currentPresets[index].name}</span>
+                </div>
+                <div class="w-full flex-1 bg-white rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center relative group cursor-pointer" onclick="openPreviewModal(${index})">
+                    <img src="${imageBase64}" class="w-full h-full object-contain p-1" alt="Sticker ${index + 1}">
+                    <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold space-x-1">
+                        <i class="fa-solid fa-magnifying-glass-plus"></i>
+                        <span>拡大</span>
+                    </div>
+                </div>
+                <div class="w-full flex space-x-1.5">
+                    <button onclick="downloadSingleSticker(${index})" class="flex-1 py-1.5 bg-line hover:bg-line-hover text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center justify-center">
+                        <i class="fa-solid fa-download mr-1"></i>保存
+                    </button>
+                    <button onclick="regenerateSingleSticker(${index})" title="再生成" class="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-colors">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        // Update Card UI on Error
+        function updateStickerCardErrorUI(index) {
+            const cardEl = document.getElementById(`sticker-card-${index}`);
+            cardEl.innerHTML = `
+                <div class="w-full flex justify-between items-center text-xs">
+                    <span class="font-bold text-slate-400 text-[11px]">No.${index + 1} ${currentPresets[index].name}</span>
+                    <span class="text-[10px] bg-rose-50 text-rose-500 px-1.5 py-0.5 rounded font-semibold">エラー</span>
+                </div>
+                <div class="w-full flex-1 bg-rose-50/50 rounded-xl border border-rose-200 flex flex-col items-center justify-center p-2 text-rose-400">
+                    <i class="fa-solid fa-triangle-exclamation text-xl mb-1"></i>
+                    <span class="text-[10px] text-center font-medium">生成に失敗しました</span>
+                </div>
+                <div class="w-full flex">
+                    <button onclick="regenerateSingleSticker(${index})" class="w-full py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center">
+                        <i class="fa-solid fa-rotate mr-1"></i>再試行
+                    </button>
+                </div>
+            `;
+        }
+
+        // Convert base64 image to LINE Sticker Standard Canvas Size (370x320) with Solid White Background
+        function createLineStickerCanvasImage(base64Data) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 370;
+                    canvas.height = 320;
+                    const ctx = canvas.getContext('2d');
+
+                    // Fill white background explicitly
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, 370, 320);
+
+                    // Standard LINE sticker format requires margin around character
+                    const targetWidth = 330;
+                    const targetHeight = 290;
+
+                    let drawWidth = targetWidth;
+                    let drawHeight = targetHeight;
+
+                    const aspect = img.width / img.height;
+                    if (aspect > targetWidth / targetHeight) {
+                        drawHeight = targetWidth / aspect;
+                    } else {
+                        drawWidth = targetHeight * aspect;
+                    }
+
+                    const offsetX = (370 - drawWidth) / 2;
+                    const offsetY = (320 - drawHeight) / 2;
+
+                    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.src = base64Data;
+            });
+        }
+
+        // Single Download Trigger
+        async function downloadSingleSticker(index) {
+            if (!generatedStickers[index]) return;
+
+            const resizedDataUrl = await createLineStickerCanvasImage(generatedStickers[index]);
+            const a = document.createElement('a');
+            a.href = resizedDataUrl;
+            a.download = `LINE_Sticker_${index + 1}_${currentPresets[index].name}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            showToast(`スタンプ #${index + 1} を保存しました (370x320px 白背景)`, 'info');
+        }
+
+        // Download All as ZIP
+        async function downloadAllZip() {
+            if (typeof JSZip === 'undefined') {
+                showToast('ZIPライブラリの読み込みに失敗しました', 'error');
+                return;
+            }
+
+            const zip = new JSZip();
+            const folder = zip.folder("LINE_Stickers");
+
+            let count = 0;
+            for (let i = 0; i < 10; i++) {
+                if (generatedStickers[i]) {
+                    const resizedDataUrl = await createLineStickerCanvasImage(generatedStickers[i]);
+                    const base64Data = resizedDataUrl.replace(/^data:image\/png;base64,/, "");
+                    folder.file(`sticker_${String(i + 1).padStart(2, '0')}_${currentPresets[i].name}.png`, base64Data, { base64: true });
+                    count++;
+                }
+            }
+
+            if (count === 0) {
+                showToast('保存対象のスタンプがありません', 'error');
+                return;
+            }
+
+            const content = await zip.generateAsync({ type: "blob" });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(content);
+            a.download = "LINE_Sticker_Set_10.zip";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            showToast(`${count}個のスタンプをZIPでダウンロードしました！`, 'success');
+        }
+
+        // Modal Handlers
+        function openPreviewModal(index) {
+            if (!generatedStickers[index]) return;
+            currentModalIndex = index;
+            modalImage.src = generatedStickers[index];
+            modalTitle.innerText = `No.${index + 1} ${currentPresets[index].name}`;
+            imageModal.classList.remove('hidden');
+        }
+
+        // Custom Toast Notification System
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const bgColor = type === 'success' ? 'bg-slate-900 border-line text-white' : 
+                            type === 'error' ? 'bg-rose-900 border-rose-500 text-white' : 
+                            'bg-slate-800 border-slate-600 text-white';
+
+            const icon = type === 'success' ? 'fa-circle-check text-line' : 
+                         type === 'error' ? 'fa-circle-exclamation text-rose-400' : 
+                         'fa-circle-info text-sky-400';
+
+            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold ${bgColor} transition-all transform translate-y-2 opacity-0 duration-200`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icon} text-base"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            // Auto dismiss
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => {
+                    if (container.contains(toast)) {
+                        container.removeChild(toast);
+                    }
+                }, 200);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
