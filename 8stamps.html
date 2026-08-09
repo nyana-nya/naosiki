@@ -77,15 +77,10 @@
             </div>
             
             <div class="flex items-center space-x-2">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
                     <span class="w-2 h-2 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Gemini AI 搭載
+                    Gemini AI 搭載 (全自動モード)
                 </span>
-                
-                <button id="apiKeyBtn" title="APIキー設定" class="px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center border border-slate-200 shadow-sm">
-                    <i class="fa-solid fa-key text-amber-500 mr-1.5"></i>
-                    <span id="apiKeyBtnText">APIキー設定</span>
-                </button>
             </div>
         </div>
     </header>
@@ -235,41 +230,6 @@
         </div>
     </div>
 
-    <!-- API Key Input Modal -->
-    <div id="apiKeyModal" class="fixed inset-0 z-50 hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative">
-            <button id="closeApiKeyModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
-                <i class="fa-solid fa-xmark text-xl"></i>
-            </button>
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
-                    <i class="fa-solid fa-key text-lg"></i>
-                </div>
-                <div>
-                    <h3 class="font-bold text-base text-slate-800">Gemini APIキーの設定</h3>
-                    <p class="text-xs text-slate-500">Google AI Studioで取得したキーを設定します</p>
-                </div>
-            </div>
-            
-            <div class="space-y-2">
-                <label class="text-xs font-bold text-slate-700 block">APIキー (AQ... または AIzaSy...)</label>
-                <input type="text" id="apiKeyInput" placeholder="AQ.Ab... または AIzaSy..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-line font-mono">
-                <p class="text-[11px] text-slate-500">Google AI Studioで生成された無料APIキーを入力して「設定を保存」を押してください。</p>
-            </div>
-
-            <div class="flex justify-between items-center pt-2">
-                <button id="clearApiKeyBtn" class="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition-colors font-medium">
-                    クリア
-                </button>
-                <div class="flex space-x-2">
-                    <button id="saveApiKeyBtn" class="px-4 py-2 bg-line hover:bg-line-hover text-white font-bold text-xs rounded-xl shadow-md transition-colors">
-                        設定を保存
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Application Script Logic -->
     <script>
         // ★ここにGoogle AI Studioで作成したAPIキーを半分ずつ貼り付けます
@@ -277,46 +237,19 @@
         const KEY_PART2 = "3vKciXNCv2VLwQikmwGrUH6R4EQ"; // 例: "OtjYXtXS3vKciXNCv2VLwQikmwGuUH6R4EQ"
         const EMBEDDED_API_KEY = (KEY_PART1 + KEY_PART2).trim();
 
-        function getUrlApiKey() {
-            try {
-                const hash = window.location.hash;
-                if (hash && hash.includes('key=')) {
-                    const match = hash.match(/key=([^&]+)/);
-                    if (match && match[1]) {
-                        return decodeURIComponent(match[1]).trim();
-                    }
-                }
-            } catch (e) {
-                console.error("Failed to parse URL hash key", e);
-            }
-            return null;
-        }
-
         function getActiveApiKey() {
-            // 1. Check URL hash first
-            const urlKey = getUrlApiKey();
-            if (urlKey) {
-                localStorage.setItem('custom_gemini_api_key', urlKey);
-                return urlKey;
-            }
-            // 2. Check localStorage key next
-            const customKey = localStorage.getItem('custom_gemini_api_key');
-            if (customKey && customKey.trim() !== '') {
-                return customKey.trim();
-            }
-            // 3. Fallback to embedded split key
             return EMBEDDED_API_KEY;
         }
 
         const DEFAULT_PRESETS = [
-            { id: 1, name: '感謝・笑顔', prompt: 'Happy joyful smiling face, expressing warm heartfelt happiness, bright cheerful posture' },
-            { id: 2, name: '大喜び', prompt: 'Super happy excited expressive face, jumping with joy, big sparkling eyes' },
-            { id: 3, name: '了解・ウインク', prompt: 'Confident smiling winking face giving a thumbs up or OK pose' },
-            { id: 4, name: 'お願い・ありがとう', prompt: 'Pleading hopeful eyes with hands together in prayer or thank you pose, expressing earnest request or grateful appreciation' },
-            { id: 5, name: 'ぷんぷん・怒り', prompt: 'Comically angry pouting face with puffed cheeks, angry anime mood style' },
-            { id: 6, name: 'しくしく・悲しみ', prompt: 'Sad crying face with big tear drops, comical dramatic sorrow expression' },
-            { id: 7, name: 'びっくり・驚き', prompt: 'Shocked surprised face, wide opened eyes and mouth, surprised pose' },
-            { id: 8, name: 'お祝い・応援', prompt: 'Festive celebrating cheerful face, cheering posture with hands up' }
+            { id: 1, name: '感謝・笑顔', prompt: 'Happy joyful smiling face character sticker, expressing warm heartfelt happiness, bright cheerful posture' },
+            { id: 2, name: '大喜び', prompt: 'Super happy excited expressive face character sticker, jumping with joy, big sparkling eyes' },
+            { id: 3, name: '了解・ウインク', prompt: 'Confident smiling winking face character sticker giving a thumbs up or OK pose' },
+            { id: 4, name: 'お願い・ありがとう', prompt: 'Pleading hopeful eyes with hands together in prayer or thank you pose character sticker, expressing grateful appreciation' },
+            { id: 5, name: 'ぷんぷn・怒り', prompt: 'Comically angry pouting face character sticker with puffed cheeks, angry anime mood style' },
+            { id: 6, name: 'しくしく・悲しみ', prompt: 'Sad crying face character sticker with big tear drops, comical dramatic sorrow expression' },
+            { id: 7, name: 'びっくり・驚き', prompt: 'Shocked surprised face character sticker, wide opened eyes and mouth, surprised pose' },
+            { id: 8, name: 'お祝い・応援', prompt: 'Festive celebrating cheerful face character sticker, cheering posture with hands up' }
         ];
 
         let currentPresets = JSON.parse(JSON.stringify(DEFAULT_PRESETS));
@@ -345,32 +278,10 @@
         const modalDownloadBtn = document.getElementById('modalDownloadBtn');
         let currentModalIndex = null;
 
-        const apiKeyBtn = document.getElementById('apiKeyBtn');
-        const apiKeyModal = document.getElementById('apiKeyModal');
-        const closeApiKeyModalBtn = document.getElementById('closeApiKeyModalBtn');
-        const apiKeyInput = document.getElementById('apiKeyInput');
-        const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
-        const clearApiKeyBtn = document.getElementById('clearApiKeyBtn');
-        const apiKeyBtnText = document.getElementById('apiKeyBtnText');
-
         window.addEventListener('DOMContentLoaded', () => {
             renderEmptyStickersGrid();
             setupEventListeners();
-            updateApiKeyUIState();
         });
-
-        function updateApiKeyUIState() {
-            const key = getActiveApiKey();
-            if (key && key.trim().length > 5) {
-                apiKeyBtnText.innerText = "APIキー設定済";
-                apiKeyBtn.classList.remove('bg-slate-100', 'text-slate-700');
-                apiKeyBtn.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-300');
-            } else {
-                apiKeyBtnText.innerText = "APIキー未設定";
-                apiKeyBtn.classList.remove('bg-emerald-50', 'text-emerald-700', 'border-emerald-300');
-                apiKeyBtn.classList.add('bg-slate-100', 'text-slate-700');
-            }
-        }
 
         function renderEmptyStickersGrid() {
             if (!stickersGrid) return;
@@ -474,32 +385,6 @@
                     downloadSingleSticker(currentModalIndex);
                 }
             });
-
-            apiKeyBtn.addEventListener('click', () => {
-                apiKeyInput.value = localStorage.getItem('custom_gemini_api_key') || EMBEDDED_API_KEY || '';
-                apiKeyModal.classList.remove('hidden');
-            });
-            closeApiKeyModalBtn.addEventListener('click', () => apiKeyModal.classList.add('hidden'));
-            apiKeyModal.addEventListener('click', (e) => {
-                if (e.target === apiKeyModal) apiKeyModal.classList.add('hidden');
-            });
-            saveApiKeyBtn.addEventListener('click', () => {
-                const val = apiKeyInput.value.trim();
-                if (val) {
-                    localStorage.setItem('custom_gemini_api_key', val);
-                    showToast('APIキーをブラウザに保存しました！', 'success');
-                } else {
-                    localStorage.removeItem('custom_gemini_api_key');
-                }
-                updateApiKeyUIState();
-                apiKeyModal.classList.add('hidden');
-            });
-            clearApiKeyBtn.addEventListener('click', () => {
-                localStorage.removeItem('custom_gemini_api_key');
-                apiKeyInput.value = '';
-                updateApiKeyUIState();
-                showToast('保存されたカスタムAPIキーをクリアしました', 'info');
-            });
         }
 
         function handleImageFile(file) {
@@ -526,7 +411,7 @@
         function resetImage() {
             sourceImageDataUrl = null;
             imageInput.value = '';
-            uploadPlaceholder.classList.add('hidden');
+            uploadPlaceholder.classList.remove('hidden');
             previewContainer.classList.add('hidden');
             generateAllBtn.disabled = true;
         }
@@ -534,46 +419,29 @@
         async function generateSingleStickerAPI(base64Image, preset) {
             const apiKey = getActiveApiKey();
             if (!apiKey || apiKey.trim() === '') {
-                throw new Error('APIキーが未設定です。画面右上の「APIキー設定」にキーを入力して保存してください。');
+                throw new Error('APIキーが埋め込まれていません。コードの275〜276行目(KEY_PART1, KEY_PART2)をご確認ください。');
             }
 
             const cleanKey = apiKey.trim();
-            const rawBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
 
-            const promptText = `
-                Generate a clean sticker illustration based strictly on the character in the provided input image.
-                
-                STRICT REQUIREMENTS:
-                1. CHARACTER MATCHING: Keep the exact character design, facial features, hair style, color scheme, art style, and clothing from the input image.
-                2. EXPRESSION & POSE: Draw the character with the following mood and pose: "${preset.prompt}".
-                3. BACKGROUND: SOLID PLAIN WHITE BACKGROUND (#FFFFFF). Clean, pure white backdrop with absolutely no patterns, gradients, or shadows on the background.
-                4. NO TEXT: NO TEXT AT ALL. NO WORDS, NO JAPANESE/ENGLISH LETTERS, NO SPEECH BUBBLE TEXT, NO TYPOGRAPHY, NO WRITING, NO SYMBOLS. ONLY THE CHARACTER ILLUSTRATION.
-                5. STYLE: High quality digital sticker illustration, crisp clean line art, vivid colors, well-centered composition.
-            `;
+            const promptText = `A clean high-quality cute digital sticker illustration of a character, ${preset.prompt}, on a solid plain white background (#FFFFFF) with clean margins, vivid colors, crisp line art, no text, no letters.`;
 
+            // Imagen 3 用のリクエストデータ (:predict エンドポイント用)
             const payload = {
-                contents: [{
-                    role: 'user',
-                    parts: [
-                        { text: promptText },
-                        {
-                            inlineData: {
-                                mimeType: 'image/png',
-                                data: rawBase64
-                            }
-                        }
-                    ]
-                }],
-                generationConfig: {
-                    responseModalities: ['IMAGE', 'TEXT']
+                instances: [
+                    { prompt: promptText }
+                ],
+                parameters: {
+                    sampleCount: 1,
+                    aspectRatio: "1:1"
                 }
             };
 
-            // 画像生成に対応しているモデル一覧
+            // 利用可能な Imagen 3 画像生成エンドポイント一覧
             const candidateModels = [
-                'gemini-2.5-flash-image',
-                'gemini-2.0-flash-exp',
-                'gemini-3.1-flash-image-preview'
+                'imagen-3.0-generate-002',
+                'imagen-3.0-fast-generate-001',
+                'imagen-4.0-generate-001'
             ];
 
             const isBearer = cleanKey.startsWith('AQ.') || cleanKey.startsWith('ya29.');
@@ -581,7 +449,7 @@
             let lastErrorMsg = '';
 
             for (const model of candidateModels) {
-                const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+                const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict`;
 
                 const authConfigs = isBearer ? [
                     { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` }, url: baseUrl },
@@ -603,13 +471,13 @@
 
                         if (response.ok) {
                             const result = await response.json();
-                            const candidates = result?.candidates || [];
-                            for (const candidate of candidates) {
-                                const parts = candidate?.content?.parts || [];
-                                for (const part of parts) {
-                                    if (part.inlineData && part.inlineData.data) {
-                                        return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-                                    }
+                            const predictions = result?.predictions || [];
+                            if (predictions.length > 0) {
+                                const pred = predictions[0];
+                                const b64 = pred.bytesBase64Encoded || pred.bytesBase64 || pred.imageBytes;
+                                const mime = pred.mimeType || 'image/png';
+                                if (b64) {
+                                    return `data:${mime};base64,${b64}`;
                                 }
                             }
                         } else {
@@ -630,8 +498,7 @@
 
             const apiKey = getActiveApiKey();
             if (!apiKey || apiKey.trim() === '') {
-                showToast('APIキーが設定されていません。画面右上の「APIキー設定」から保存してください。', 'error');
-                apiKeyModal.classList.remove('hidden');
+                showToast('APIキーが埋め込まれていません。コードのKEY_PART1とKEY_PART2を入力してください。', 'error');
                 return;
             }
 
@@ -683,7 +550,7 @@
                 showToast(`${successCount}個のスタンプ生成が完了しました！`, 'success');
                 downloadZipBtn.disabled = false;
             } else {
-                showToast('スタンプの生成に失敗しました。右上の「APIキー設定」で最新のキーを入力してください。', 'error');
+                showToast('スタンプの生成に失敗しました。コードのAPIキー設定をご確認ください。', 'error');
             }
         }
 
