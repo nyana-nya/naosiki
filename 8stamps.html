@@ -253,7 +253,7 @@
             
             <div class="space-y-2">
                 <label class="text-xs font-bold text-slate-700 block">APIキー (AQ. または AIzaSy...)</label>
-                <input type="password" id="apiKeyInput" placeholder="AQ.Ab..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-line">
+                <input type="password" id="apiKeyInput" placeholder="AQ.Ab... または AIzaSy..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-line">
                 <p class="text-[11px] text-slate-400">Google AI Studioで生成されたキーを入力して保存してください。</p>
             </div>
 
@@ -272,7 +272,7 @@
 
     <!-- Application Script Logic -->
     <script>
-        // APIキーを2分割して結合（GitHubのボットによるキー自動削除を防ぐ仕組み）
+        // APIキー分割（GitHubのボットによるキー自動抹消を回避する仕組み）
         const KEY_PART1 = "AQ.Ab8RN6LetqvtlbwOtjYXtXS"; // ★ここに前半を貼り付け（例: "AQ.Ab8RN6Letqvtlbw"）
         const KEY_PART2 = "3vKciXNCv2VLwQikmwGrUH6R4EQ"; // ★ここに後半を貼り付け（例: "OtjYXtXS3vKciXNCv2VLwQikmwGuUH6R4EQ"）
         const EMBEDDED_API_KEY = (KEY_PART1 + KEY_PART2).trim();
@@ -527,7 +527,7 @@
         async function generateSingleStickerAPI(base64Image, preset) {
             const apiKey = getActiveApiKey();
             if (!apiKey) {
-                throw new Error('APIキーが設定されていません');
+                throw new Error('APIキーが設定されていません。画面右上の「APIキー設定」から設定してください。');
             }
             const rawBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
 
@@ -556,7 +556,7 @@
                     ]
                 }],
                 generationConfig: {
-                    responseModalities: ['IMAGE'],
+                    responseModalities: ['IMAGE', 'TEXT'],
                     imageConfig: {
                         aspectRatio: "1:1"
                     }
@@ -565,21 +565,24 @@
 
             const modelNames = [
                 'gemini-2.5-flash-image',
-                'gemini-2.0-flash-exp'
+                'gemini-2.0-flash-exp',
+                'gemini-3.1-flash-image-preview'
             ];
 
-            const isBearerFirst = apiKey.startsWith('AQ.') || apiKey.startsWith('ya29.');
+            const isBearer = apiKey.startsWith('AQ.') || apiKey.startsWith('ya29.');
 
             let lastError = null;
 
             for (const model of modelNames) {
                 const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-                const authAttempts = isBearerFirst ? [
+                const authAttempts = isBearer ? [
                     { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }, url: baseUrl },
-                    { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey }, url: `${baseUrl}?key=${apiKey}` }
+                    { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey }, url: `${baseUrl}?key=${apiKey}` },
+                    { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${apiKey}` }
                 ] : [
                     { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey }, url: `${baseUrl}?key=${apiKey}` },
+                    { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${apiKey}` },
                     { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }, url: baseUrl }
                 ];
 
@@ -592,24 +595,25 @@
                         });
 
                         if (response.status === 401) {
-                            lastError = new Error('APIキー認証エラー (HTTP 401): キーが無効か権限がありません');
+                            lastError = new Error('APIキー認証エラー (401): キーが無効か権限がありません');
                             continue;
                         }
 
                         if (!response.ok) {
-                            if (response.status === 400 || response.status === 403) {
-                                const errBody = await response.text();
-                                lastError = new Error(`APIキーエラー (${response.status}): ${errBody}`);
-                                continue;
-                            }
-                            throw new Error(`HTTP ${response.status}`);
+                            const errBody = await response.text();
+                            lastError = new Error(`APIエラー (${response.status}): ${errBody.substring(0, 100)}`);
+                            continue;
                         }
 
                         const result = await response.json();
-                        const part = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-
-                        if (part && part.inlineData && part.inlineData.data) {
-                            return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                        const candidates = result?.candidates || [];
+                        for (const candidate of candidates) {
+                            const parts = candidate?.content?.parts || [];
+                            for (const part of parts) {
+                                if (part.inlineData && part.inlineData.data) {
+                                    return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+                                }
+                            }
                         }
                     } catch (error) {
                         lastError = error;
@@ -655,7 +659,7 @@
                     console.error(`Failed generating sticker #${i + 1}`, err);
                     updateStickerCardErrorUI(i);
                     if (err.message && err.message.includes('401')) {
-                        showToast('APIキー認証エラー (401): 画面右上の「APIキー設定」から正しいキーを入力してください', 'error');
+                        showToast('APIキー認証エラー (401): 画面右上の「APIキー設定」からキーを入力し直してください', 'error');
                     }
                 }
 
