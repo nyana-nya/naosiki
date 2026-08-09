@@ -67,20 +67,31 @@
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-line flex items-center justify-center text-white shadow-md shadow-line/20">
+                <div class="w-10 h-10 rounded-xl bg-line flex items-center justify-center text-white shadow-md shadow-line/20 shrink-0">
                     <i class="fa-solid fa-face-smile-wink text-2xl"></i>
                 </div>
                 <div>
                     <h1 class="font-extrabold text-lg sm:text-xl text-slate-900 leading-tight">AI LINEスタンプメーカー <span class="bg-line-light text-line px-2 py-0.5 rounded-lg text-xs ml-1">8個版</span></h1>
-                    <p class="text-xs text-slate-500 font-medium">1枚のイラストから8種類のスタンプを無料生成</p>
+                    <p class="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                        <span>1枚のイラストから8種類のスタンプを無料生成</span>
+                        <span class="text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md text-[11px] font-semibold inline-flex items-center shadow-xs">
+                            <i class="fa-solid fa-triangle-exclamation mr-1 text-amber-500"></i>
+                            使いすぎると一時的に使えなくなります。生成回数は控えめにお願いします
+                        </span>
+                    </p>
                 </div>
             </div>
             
             <div class="flex items-center space-x-2">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
                     <span class="w-2 h-2 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Gemini AI 搭載 (全自動モード)
+                    Gemini 3.1 AI搭載
                 </span>
+                
+                <button id="apiKeyBtn" title="APIキー設定" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center">
+                    <i id="apiKeyBtnIcon" class="fa-solid fa-key text-amber-500 mr-1.5"></i>
+                    <span id="apiKeyBtnText">APIキー未設定</span>
+                </button>
             </div>
         </div>
     </header>
@@ -203,16 +214,16 @@
             </div>
 
             <div id="stickersGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <!-- 8 Sticker Cards dynamically rendered -->
+                <!-- 8 Sticker Cards -->
             </div>
         </div>
 
     </main>
 
-    <!-- Toast Container -->
+    <!-- Toast Notification Container -->
     <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-    <!-- Preview Modal -->
+    <!-- Image Preview Modal -->
     <div id="imageModal" class="fixed inset-0 z-50 hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl relative">
             <button id="closeModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
@@ -230,30 +241,103 @@
         </div>
     </div>
 
+    <!-- API Key Input Modal -->
+    <div id="apiKeyModal" class="fixed inset-0 z-50 hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative">
+            <button id="closeApiKeyModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                    <i class="fa-solid fa-key text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-base text-slate-800">Gemini APIキーの設定</h3>
+                    <p class="text-xs text-slate-500">コード埋め込みまたはここからの直接入力が可能です</p>
+                </div>
+            </div>
+            
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-700 block">APIキー (Google AI Studioで取得)</label>
+                <input type="password" id="apiKeyInput" placeholder="AQ... や AIzaSy..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-line">
+                <p class="text-[11px] text-slate-400">コード内の <code class="bg-slate-100 px-1 rounded text-rose-500 font-mono">EMBEDDED_API_KEY</code> に直接書くか、ここで保存すると優先して使われます。</p>
+            </div>
+
+            <div class="flex justify-between items-center pt-2">
+                <button id="clearApiKeyBtn" class="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition-colors font-medium">
+                    クリア
+                </button>
+                <div class="flex space-x-2">
+                    <button id="saveApiKeyBtn" class="px-4 py-2 bg-line hover:bg-line-hover text-white font-bold text-xs rounded-xl shadow-md transition-colors">
+                        設定を保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Application Script Logic -->
     <script>
-        // ★ここにGoogle AI Studioで取得した AQ. から始まるAPIキーを半分に分けて入力してください
-        const KEY_PART1 = "AQ.Ab8RN6LetqvtlbwOtjYXtXS"; // 例: "AQ.Ab8RN6Letqvtlbw"
-        const KEY_PART2 = "3vKciXNCv2VLwQikmwGrUH6R4EQ"; // 例: "OtjYXtXS3vKciXNCv2VLwQikmwGuUH6R4EQ"
-        const EMBEDDED_API_KEY = (KEY_PART1 + KEY_PART2).trim();
+        // ↓ ダブルクォーテーションの中にGoogle AI StudioのAPIキー(AQ...またはAIzaSy...)を入力してください
+        const EMBEDDED_API_KEY = "AQ.Ab8RN6KK1GJdzFAoclEW8s16LrEVo81YxNsswYLu1ryYnSVVkA";
 
+        /**
+         * 有効なAPIキーを取得する関数
+         * AQ. または AIzaSy などの新旧Gemini APIキー形式に対応
+         */
         function getActiveApiKey() {
-            return EMBEDDED_API_KEY;
+            // 1. コード内の埋め込みキーを判定
+            const embedded = EMBEDDED_API_KEY ? EMBEDDED_API_KEY.trim() : "";
+            if (embedded && 
+                !embedded.includes("XXXXX") && 
+                !embedded.includes("ここに") && 
+                embedded !== "YOUR_API_KEY" &&
+                embedded.length > 10) {
+                return embedded;
+            }
+
+            // 2. ブラウザ画面（localStorage）からの入力キーを判定
+            const customKey = localStorage.getItem('custom_gemini_api_key');
+            if (customKey && customKey.trim() !== '' && customKey.trim().length > 10) {
+                return customKey.trim();
+            }
+
+            return "";
+        }
+
+        function isApiKeyValid() {
+            const key = getActiveApiKey();
+            return key !== "" && key.length > 10;
+        }
+
+        function updateApiKeyUIState() {
+            const apiKeyBtnText = document.getElementById('apiKeyBtnText');
+            const apiKeyBtnIcon = document.getElementById('apiKeyBtnIcon');
+            if (!apiKeyBtnText || !apiKeyBtnIcon) return;
+
+            if (isApiKeyValid()) {
+                apiKeyBtnText.innerText = "設定完了";
+                apiKeyBtnIcon.className = "fa-solid fa-circle-check text-emerald-500 mr-1.5";
+            } else {
+                apiKeyBtnText.innerText = "APIキー未設定";
+                apiKeyBtnIcon.className = "fa-solid fa-key text-amber-500 mr-1.5";
+            }
         }
 
         const DEFAULT_PRESETS = [
-            { id: 1, name: '感謝・笑顔', prompt: 'Happy joyful smiling face character sticker, expressing warm heartfelt happiness, bright cheerful posture' },
-            { id: 2, name: '大喜び', prompt: 'Super happy excited expressive face character sticker, jumping with joy, big sparkling eyes' },
-            { id: 3, name: '了解・ウインク', prompt: 'Confident smiling winking face character sticker giving a thumbs up or OK pose' },
-            { id: 4, name: 'お願い・ありがとう', prompt: 'Pleading hopeful eyes with hands together in prayer or thank you pose character sticker, expressing grateful appreciation' },
-            { id: 5, name: 'ぷんぷん・怒り', prompt: 'Comically angry pouting face character sticker with puffed cheeks, angry anime mood style' },
-            { id: 6, name: 'しくしく・悲しみ', prompt: 'Sad crying face character sticker with big tear drops, comical dramatic sorrow expression' },
-            { id: 7, name: 'びっくり・驚き', prompt: 'Shocked surprised face character sticker, wide opened eyes and mouth, surprised pose' },
-            { id: 8, name: 'お祝い・応援', prompt: 'Festive celebrating cheerful face character sticker, cheering posture with hands up' }
+            { id: 1, name: '感謝・笑顔', prompt: 'Happy joyful smiling face, expressing warm heartfelt happiness, bright cheerful posture' },
+            { id: 2, name: '大喜び', prompt: 'Super happy excited expressive face, jumping with joy, big sparkling eyes' },
+            { id: 3, name: '了解・ウインク', prompt: 'Confident smiling winking face giving a thumbs up or OK pose' },
+            { id: 4, name: 'お願い・ありがとう', prompt: 'Pleading hopeful eyes with hands together in prayer or thank you pose, expressing earnest request or grateful appreciation' },
+            { id: 5, name: 'ぷんぷん・怒り', prompt: 'Comically angry pouting face with puffed cheeks, angry anime mood style' },
+            { id: 6, name: 'しくしく・悲しみ', prompt: 'Sad crying face with big tear drops, comical dramatic sorrow expression' },
+            { id: 7, name: 'びっくり・驚き', prompt: 'Shocked surprised face, wide opened eyes and mouth, surprised pose' },
+            { id: 8, name: 'お祝い・応援', prompt: 'Festive celebrating cheerful face, cheering posture with hands up' }
         ];
 
         let currentPresets = JSON.parse(JSON.stringify(DEFAULT_PRESETS));
         let sourceImageDataUrl = null;
+        let optimizedSourceBase64 = null;
         let generatedStickers = Array(8).fill(null);
         let isGenerating = false;
 
@@ -278,11 +362,17 @@
         const modalDownloadBtn = document.getElementById('modalDownloadBtn');
         let currentModalIndex = null;
 
-        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        const apiKeyBtn = document.getElementById('apiKeyBtn');
+        const apiKeyModal = document.getElementById('apiKeyModal');
+        const closeApiKeyModalBtn = document.getElementById('closeApiKeyModalBtn');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+        const clearApiKeyBtn = document.getElementById('clearApiKeyBtn');
 
         window.addEventListener('DOMContentLoaded', () => {
             renderEmptyStickersGrid();
             setupEventListeners();
+            updateApiKeyUIState();
         });
 
         function renderEmptyStickersGrid() {
@@ -336,28 +426,20 @@
 
         function setupEventListeners() {
             dropzone.addEventListener('click', (e) => {
-                if (e.target !== imageInput) {
-                    imageInput.click();
-                }
+                if (e.target !== imageInput) imageInput.click();
             });
-
-            imageInput.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
+            imageInput.addEventListener('click', (e) => e.stopPropagation());
 
             dropzone.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                e.stopPropagation();
                 dropzone.classList.add('border-line', 'bg-line-light/40');
             });
             dropzone.addEventListener('dragleave', (e) => {
                 e.preventDefault();
-                e.stopPropagation();
                 dropzone.classList.remove('border-line', 'bg-line-light/40');
             });
             dropzone.addEventListener('drop', (e) => {
                 e.preventDefault();
-                e.stopPropagation();
                 dropzone.classList.remove('border-line', 'bg-line-light/40');
                 if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                     handleImageFile(e.dataTransfer.files[0]);
@@ -387,18 +469,79 @@
                     downloadSingleSticker(currentModalIndex);
                 }
             });
+
+            apiKeyBtn.addEventListener('click', () => {
+                apiKeyInput.value = localStorage.getItem('custom_gemini_api_key') || '';
+                apiKeyModal.classList.remove('hidden');
+            });
+            closeApiKeyModalBtn.addEventListener('click', () => apiKeyModal.classList.add('hidden'));
+            apiKeyModal.addEventListener('click', (e) => {
+                if (e.target === apiKeyModal) apiKeyModal.classList.add('hidden');
+            });
+            saveApiKeyBtn.addEventListener('click', () => {
+                const val = apiKeyInput.value.trim();
+                if (val) {
+                    localStorage.setItem('custom_gemini_api_key', val);
+                    showToast('APIキーを保存しました', 'success');
+                } else {
+                    localStorage.removeItem('custom_gemini_api_key');
+                }
+                updateApiKeyUIState();
+                apiKeyModal.classList.add('hidden');
+            });
+            clearApiKeyBtn.addEventListener('click', () => {
+                localStorage.removeItem('custom_gemini_api_key');
+                apiKeyInput.value = '';
+                updateApiKeyUIState();
+                showToast('保存されたAPIキーを削除しました', 'info');
+            });
         }
 
-        function handleImageFile(file) {
+        function compressAndResizeImage(dataUrl, maxDimension = 512, quality = 0.85) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    let w = img.width;
+                    let h = img.height;
+
+                    if (w > maxDimension || h > maxDimension) {
+                        if (w > h) {
+                            h = Math.round((h * maxDimension) / w);
+                            w = maxDimension;
+                        } else {
+                            w = Math.round((w * maxDimension) / h);
+                            h = maxDimension;
+                        }
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.drawImage(img, 0, 0, w, h);
+
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressedDataUrl.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, ''));
+                };
+                img.src = dataUrl;
+            });
+        }
+
+        async function handleImageFile(file) {
             if (!file.type || !file.type.startsWith('image/')) {
                 showToast('画像ファイル(PNG/JPGなど)を選択してください', 'error');
                 return;
             }
 
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = async (e) => {
                 sourceImageDataUrl = e.target.result;
                 sourcePreview.src = sourceImageDataUrl;
+                
+                optimizedSourceBase64 = await compressAndResizeImage(sourceImageDataUrl, 512, 0.85);
+
                 uploadPlaceholder.classList.add('hidden');
                 previewContainer.classList.remove('hidden');
                 generateAllBtn.disabled = false;
@@ -412,20 +555,21 @@
 
         function resetImage() {
             sourceImageDataUrl = null;
+            optimizedSourceBase64 = null;
             imageInput.value = '';
             uploadPlaceholder.classList.remove('hidden');
             previewContainer.classList.add('hidden');
             generateAllBtn.disabled = true;
         }
 
-        async function generateSingleStickerAPI(base64Image, preset, retryCount = 0) {
-            const apiKey = getActiveApiKey();
-            if (!apiKey || apiKey.trim() === '') {
-                throw new Error('APIキーが設定されていません。コードのKEY_PART1とKEY_PART2をご確認ください。');
+        async function generateSingleStickerAPI(base64Image, preset) {
+            if (!isApiKeyValid()) {
+                apiKeyModal.classList.remove('hidden');
+                throw new Error("APIキーが未設定または無効です。コード内のEMBEDDED_API_KEYにキーを貼り付けるか、APIキー設定画面から入力してください。");
             }
 
-            const cleanKey = apiKey.trim();
-            const rawBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
+            const apiKey = getActiveApiKey();
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`;
 
             const promptText = `
                 Generate a clean sticker illustration based strictly on the character in the provided input image.
@@ -445,91 +589,74 @@
                         { text: promptText },
                         {
                             inlineData: {
-                                mimeType: 'image/png',
-                                data: rawBase64
+                                mimeType: 'image/jpeg',
+                                data: base64Image
                             }
                         }
                     ]
                 }],
                 generationConfig: {
-                    responseModalities: ['IMAGE', 'TEXT'],
+                    responseModalities: ['IMAGE'],
                     imageConfig: {
                         aspectRatio: "1:1"
                     }
                 }
             };
 
-            const modelNames = [
-                'gemini-2.5-flash-image-preview',
-                'gemini-2.0-flash-exp'
-            ];
+            let retries = 0;
+            const maxRetries = 3;
 
-            const isBearer = cleanKey.startsWith('AQ.') || cleanKey.startsWith('ya29.');
+            while (retries <= maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': apiKey
+                        },
+                        body: JSON.stringify(payload)
+                    });
 
-            let lastErrorMsg = '';
-
-            for (const model of modelNames) {
-                const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-                const authConfigs = isBearer ? [
-                    { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` }, url: `${baseUrl}?key=${cleanKey}` },
-                    { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': cleanKey }, url: `${baseUrl}?key=${cleanKey}` },
-                    { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${cleanKey}` }
-                ] : [
-                    { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${cleanKey}` },
-                    { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': cleanKey }, url: `${baseUrl}?key=${cleanKey}` }
-                ];
-
-                for (const auth of authConfigs) {
-                    try {
-                        const response = await fetch(auth.url, {
-                            method: 'POST',
-                            headers: auth.headers,
-                            body: JSON.stringify(payload)
-                        });
-
-                        // HTTP 429 制限にかかった場合は自動待機してリトライ
+                    if (!response.ok) {
+                        if (response.status === 400 || response.status === 403) {
+                            apiKeyModal.classList.remove('hidden');
+                            throw new Error(`APIキーが無効または設定されていません。コード内のEMBEDDED_API_KEYにキーを入力するか、「APIキー設定」から保存してください。`);
+                        }
                         if (response.status === 429) {
-                            if (retryCount < 4) {
-                                const waitTime = (retryCount + 1) * 4000;
-                                console.warn(`Rate limit hit (429). Retrying in ${waitTime}ms...`);
-                                await sleep(waitTime);
-                                return await generateSingleStickerAPI(base64Image, preset, retryCount + 1);
+                            retries++;
+                            if (retries <= maxRetries) {
+                                await new Promise(res => setTimeout(res, Math.pow(2, retries) * 2000));
+                                continue;
                             }
-                            lastErrorMsg = 'API制限(429): 無料枠の通信速度上限に達しました。数十秒待って「再試行」を押してください。';
-                            continue;
                         }
-
-                        if (response.ok) {
-                            const result = await response.json();
-                            const candidates = result?.candidates || [];
-                            for (const candidate of candidates) {
-                                const parts = candidate?.content?.parts || [];
-                                for (const part of parts) {
-                                    if (part.inlineData && part.inlineData.data) {
-                                        return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-                                    }
-                                }
-                            }
-                        } else {
-                            const errBody = await response.text();
-                            lastErrorMsg = `[HTTP ${response.status}] ${errBody.substring(0, 100)}`;
-                        }
-                    } catch (err) {
-                        lastErrorMsg = err.message || 'ネットワークエラー';
+                        throw new Error(`APIエラー (Status: ${response.status})`);
                     }
+
+                    const result = await response.json();
+                    const part = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+
+                    if (part && part.inlineData && part.inlineData.data) {
+                        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                    } else {
+                        throw new Error('画像データが返却されませんでした');
+                    }
+                } catch (error) {
+                    if (error.message.includes('APIキー') || retries >= maxRetries) {
+                        console.error('Error generating sticker:', error);
+                        throw error;
+                    }
+                    retries++;
+                    await new Promise(res => setTimeout(res, 2000));
                 }
             }
-
-            throw new Error(lastErrorMsg || 'APIエラー: 画像生成モデルへの接続に失敗しました。');
         }
 
         async function startBatchGeneration() {
-            if (!sourceImageDataUrl || isGenerating) return;
+            if (!optimizedSourceBase64 || isGenerating) return;
 
-            const apiKey = getActiveApiKey();
-            if (!apiKey || apiKey.trim() === '') {
-                showToast('APIキーが埋め込まれていません。コードのKEY_PART1とKEY_PART2を入力してください。', 'error');
+            if (!isApiKeyValid()) {
+                apiKeyModal.classList.remove('hidden');
+                showToast('有効なGemini APIキーを設定してください', 'error');
                 return;
             }
 
@@ -551,19 +678,19 @@
                 const cardEl = document.getElementById(`sticker-card-${i}`);
 
                 cardEl.querySelector('.flex-1').innerHTML = `
-                    <div class="flex flex-col items-center justify-center space-y-2 p-2 text-center">
+                    <div class="flex flex-col items-center justify-center space-y-2">
                         <i class="fa-solid fa-spinner animate-spin text-line text-2xl"></i>
                         <span class="text-[11px] text-slate-500 font-bold">生成中...</span>
                     </div>
                 `;
 
                 try {
-                    const resultImageBase64 = await generateSingleStickerAPI(sourceImageDataUrl, preset);
+                    const resultImageBase64 = await generateSingleStickerAPI(optimizedSourceBase64, preset);
                     generatedStickers[i] = resultImageBase64;
                     updateStickerCardUI(i, resultImageBase64);
                 } catch (err) {
                     console.error(`Failed generating sticker #${i + 1}`, err);
-                    updateStickerCardErrorUI(i, err.message);
+                    updateStickerCardErrorUI(i);
                 }
 
                 completedCount++;
@@ -571,53 +698,56 @@
                 progressBar.style.width = `${percent}%`;
                 progressPercent.innerText = `${completedCount} / 8`;
 
-                // 連続通信制限（429）を回避するための2.5秒間のウェイト
                 if (i < 7) {
-                    await sleep(2500);
+                    await new Promise(res => setTimeout(res, 1500));
                 }
             }
 
             isGenerating = false;
             generateAllBtn.disabled = false;
             progressTitle.innerText = '生成が完了しました！';
-            
-            const successCount = generatedStickers.filter(x => x !== null).length;
-            if (successCount > 0) {
-                showToast(`${successCount}個のスタンプ生成が完了しました！`, 'success');
+            showToast('すべてのスタンプ生成が完了しました！', 'success');
+
+            if (generatedStickers.some(img => img !== null)) {
                 downloadZipBtn.disabled = false;
-            } else {
-                showToast('スタンプの生成に失敗しました。', 'error');
             }
         }
 
         async function regenerateSingleSticker(index) {
-            if (!sourceImageDataUrl || isGenerating) return;
+            if (!optimizedSourceBase64 || isGenerating) return;
+
+            if (!isApiKeyValid()) {
+                apiKeyModal.classList.remove('hidden');
+                showToast('有効なGemini APIキーを設定してください', 'error');
+                return;
+            }
 
             const preset = currentPresets[index];
             const cardEl = document.getElementById(`sticker-card-${index}`);
 
             cardEl.querySelector('.flex-1').innerHTML = `
-                <div class="flex flex-col items-center justify-center space-y-2 p-2 text-center">
+                <div class="flex flex-col items-center justify-center space-y-2">
                     <i class="fa-solid fa-spinner animate-spin text-line text-2xl"></i>
                     <span class="text-[11px] text-slate-500 font-bold">再生成中...</span>
                 </div>
             `;
 
             try {
-                const resultImageBase64 = await generateSingleStickerAPI(sourceImageDataUrl, preset);
+                const resultImageBase64 = await generateSingleStickerAPI(optimizedSourceBase64, preset);
                 generatedStickers[index] = resultImageBase64;
                 updateStickerCardUI(index, resultImageBase64);
                 showToast(`スタンプ #${index + 1} を再生成しました`, 'success');
                 downloadZipBtn.disabled = false;
             } catch (err) {
                 console.error(`Regeneration failed for #${index + 1}`, err);
-                updateStickerCardErrorUI(index, err.message);
-                showToast(`スタンプ #${index + 1} の再生成に失敗しました`, 'error');
+                updateStickerCardErrorUI(index);
+                showToast(`スタンプ #${index + 1} の生成に失敗しました`, 'error');
             }
         }
 
         function updateStickerCardUI(index, imageBase64) {
             const cardEl = document.getElementById(`sticker-card-${index}`);
+            if (!cardEl) return;
             cardEl.innerHTML = `
                 <div class="w-full flex justify-between items-center text-xs">
                     <span class="font-bold text-slate-700 text-[11px]">No.${index + 1} ${currentPresets[index].name}</span>
@@ -640,18 +770,17 @@
             `;
         }
 
-        function updateStickerCardErrorUI(index, errorDetail) {
+        function updateStickerCardErrorUI(index) {
             const cardEl = document.getElementById(`sticker-card-${index}`);
-            const shortDetail = errorDetail ? errorDetail.substring(0, 45) : '生成失敗';
-            
+            if (!cardEl) return;
             cardEl.innerHTML = `
                 <div class="w-full flex justify-between items-center text-xs">
                     <span class="font-bold text-slate-400 text-[11px]">No.${index + 1} ${currentPresets[index].name}</span>
                     <span class="text-[10px] bg-rose-50 text-rose-500 px-1.5 py-0.5 rounded font-semibold">エラー</span>
                 </div>
-                <div class="w-full flex-1 bg-rose-50/50 rounded-xl border border-rose-200 flex flex-col items-center justify-center p-2 text-rose-500 text-center space-y-1">
-                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
-                    <span class="text-[10px] font-medium leading-tight line-clamp-2">${shortDetail}</span>
+                <div class="w-full flex-1 bg-rose-50/50 rounded-xl border border-rose-200 flex flex-col items-center justify-center p-2 text-rose-400">
+                    <i class="fa-solid fa-triangle-exclamation text-xl mb-1"></i>
+                    <span class="text-[10px] text-center font-medium">生成に失敗しました</span>
                 </div>
                 <div class="w-full flex">
                     <button onclick="regenerateSingleSticker(${index})" class="w-full py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center">
@@ -766,10 +895,10 @@
                          type === 'error' ? 'fa-circle-exclamation text-rose-400' : 
                          'fa-circle-info text-sky-400';
 
-            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold ${bgColor} transition-all transform translate-y-2 opacity-0 duration-200 max-w-md`;
+            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold ${bgColor} transition-all transform translate-y-2 opacity-0 duration-200`;
             toast.innerHTML = `
-                <i class="fa-solid ${icon} text-base shrink-0"></i>
-                <span class="leading-tight">${message}</span>
+                <i class="fa-solid ${icon} text-base"></i>
+                <span>${message}</span>
             `;
 
             container.appendChild(toast);
@@ -785,7 +914,7 @@
                         container.removeChild(toast);
                     }
                 }, 200);
-            }, 4500);
+            }, 3500);
         }
     </script>
 </body>
