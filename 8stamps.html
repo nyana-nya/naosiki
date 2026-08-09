@@ -79,7 +79,7 @@
             <div class="flex items-center space-x-2">
                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
                     <span class="w-2 h-2 mr-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Gemini 3.1 AI搭載
+                    Gemini AI 搭載
                 </span>
                 
                 <button id="apiKeyBtn" title="APIキー設定（講師用）" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center">
@@ -214,7 +214,7 @@
 
     </main>
 
-    <!-- Toast Notification Container -->
+    <!-- Toast Container -->
     <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
     <!-- Image Preview Modal -->
@@ -272,6 +272,7 @@
 
     <!-- Application Script Logic -->
     <script>
+        // ★ここを新しく作成した無料アカウントのAPIキーに差し替えてください★
         const EMBEDDED_API_KEY = "AQ.Ab8RN6JMgUg7GSHDAO_GIfyJaIKaksTkC7EK2sGtJJGFA1cEoA";
 
         function getActiveApiKey() {
@@ -287,7 +288,7 @@
             { id: 2, name: '大喜び', prompt: 'Super happy excited expressive face, jumping with joy, big sparkling eyes' },
             { id: 3, name: '了解・ウインク', prompt: 'Confident smiling winking face giving a thumbs up or OK pose' },
             { id: 4, name: 'お願い・ありがとう', prompt: 'Pleading hopeful eyes with hands together in prayer or thank you pose, expressing earnest request or grateful appreciation' },
-            { id: 5, name: 'ぷんぷん・怒り', prompt: 'Comically angry pouting face with puffed cheeks, angry anime mood style' },
+            { id: 5, name: 'ぷんぷn・怒り', prompt: 'Comically angry pouting face with puffed cheeks, angry anime mood style' },
             { id: 6, name: 'しくしく・悲しみ', prompt: 'Sad crying face with big tear drops, comical dramatic sorrow expression' },
             { id: 7, name: 'びっくり・驚き', prompt: 'Shocked surprised face, wide opened eyes and mouth, surprised pose' },
             { id: 8, name: 'お祝い・応援', prompt: 'Festive celebrating cheerful face, cheering posture with hands up' }
@@ -501,9 +502,10 @@
             generateAllBtn.disabled = true;
         }
 
+        // 無料枠対応のモデル(gemini-2.5-flash-image)を使用
         async function generateSingleStickerAPI(base64Image, preset) {
             const apiKey = getActiveApiKey();
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
 
             const rawBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
 
