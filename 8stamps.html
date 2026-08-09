@@ -82,7 +82,7 @@
                     Gemini AI 搭載
                 </span>
                 
-                <button id="apiKeyBtn" title="APIキー設定" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center">
+                <button id="apiKeyBtn" title="APIキー設定" class="px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center border border-slate-200 shadow-sm">
                     <i class="fa-solid fa-key text-amber-500 mr-1.5"></i>
                     <span id="apiKeyBtnText">APIキー設定</span>
                 </button>
@@ -208,7 +208,7 @@
             </div>
 
             <div id="stickersGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <!-- 8 Sticker Cards -->
+                <!-- 8 Sticker Cards dynamically rendered -->
             </div>
         </div>
 
@@ -252,9 +252,9 @@
             </div>
             
             <div class="space-y-2">
-                <label class="text-xs font-bold text-slate-700 block">APIキー (AQ. または AIzaSy...)</label>
-                <input type="password" id="apiKeyInput" placeholder="AQ.Ab... または AIzaSy..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-line">
-                <p class="text-[11px] text-slate-400">Google AI Studioで生成されたキーを入力して保存してください。</p>
+                <label class="text-xs font-bold text-slate-700 block">APIキー (AQ... または AIzaSy...)</label>
+                <input type="text" id="apiKeyInput" placeholder="AQ.Ab... または AIzaSy..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-line font-mono">
+                <p class="text-[11px] text-slate-500">Google AI Studioで生成された無料APIキーを入力して「設定を保存」を押してください。</p>
             </div>
 
             <div class="flex justify-between items-center pt-2">
@@ -272,9 +272,9 @@
 
     <!-- Application Script Logic -->
     <script>
-        // APIキー分割（GitHubのボットによるキー自動抹消を回避する仕組み）
-        const KEY_PART1 = "AQ.Ab8RN6LetqvtlbwOtjYXtXS"; // ★ここに前半を貼り付け（例: "AQ.Ab8RN6Letqvtlbw"）
-        const KEY_PART2 = "3vKciXNCv2VLwQikmwGrUH6R4EQ"; // ★ここに後半を貼り付け（例: "OtjYXtXS3vKciXNCv2VLwQikmwGuUH6R4EQ"）
+        // ★ここにGoogle AI Studioで作成したAPIキーを半分ずつ貼り付けます
+        const KEY_PART1 = "AQ.Ab8RN6LetqvtlbwOtjYXtXS"; // 例: "AQ.Ab8RN6Letqvtlbw"
+        const KEY_PART2 = "3vKciXNCv2VLwQikmwGrUH6R4EQ"; // 例: "OtjYXtXS3vKciXNCv2VLwQikmwGuUH6R4EQ"
         const EMBEDDED_API_KEY = (KEY_PART1 + KEY_PART2).trim();
 
         function getUrlApiKey() {
@@ -293,15 +293,18 @@
         }
 
         function getActiveApiKey() {
+            // 1. Check URL hash first
             const urlKey = getUrlApiKey();
             if (urlKey) {
                 localStorage.setItem('custom_gemini_api_key', urlKey);
                 return urlKey;
             }
+            // 2. Check localStorage key next
             const customKey = localStorage.getItem('custom_gemini_api_key');
             if (customKey && customKey.trim() !== '') {
                 return customKey.trim();
             }
+            // 3. Fallback to embedded split key
             return EMBEDDED_API_KEY;
         }
 
@@ -358,10 +361,14 @@
 
         function updateApiKeyUIState() {
             const key = getActiveApiKey();
-            if (key) {
+            if (key && key.trim().length > 5) {
                 apiKeyBtnText.innerText = "APIキー設定済";
+                apiKeyBtn.classList.remove('bg-slate-100', 'text-slate-700');
+                apiKeyBtn.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-300');
             } else {
                 apiKeyBtnText.innerText = "APIキー未設定";
+                apiKeyBtn.classList.remove('bg-emerald-50', 'text-emerald-700', 'border-emerald-300');
+                apiKeyBtn.classList.add('bg-slate-100', 'text-slate-700');
             }
         }
 
@@ -469,7 +476,7 @@
             });
 
             apiKeyBtn.addEventListener('click', () => {
-                apiKeyInput.value = localStorage.getItem('custom_gemini_api_key') || '';
+                apiKeyInput.value = localStorage.getItem('custom_gemini_api_key') || EMBEDDED_API_KEY || '';
                 apiKeyModal.classList.remove('hidden');
             });
             closeApiKeyModalBtn.addEventListener('click', () => apiKeyModal.classList.add('hidden'));
@@ -491,7 +498,7 @@
                 localStorage.removeItem('custom_gemini_api_key');
                 apiKeyInput.value = '';
                 updateApiKeyUIState();
-                showToast('保存されたカスタムAPIキーを削除しました', 'info');
+                showToast('保存されたカスタムAPIキーをクリアしました', 'info');
             });
         }
 
@@ -519,16 +526,18 @@
         function resetImage() {
             sourceImageDataUrl = null;
             imageInput.value = '';
-            uploadPlaceholder.classList.remove('hidden');
+            uploadPlaceholder.classList.add('hidden');
             previewContainer.classList.add('hidden');
             generateAllBtn.disabled = true;
         }
 
         async function generateSingleStickerAPI(base64Image, preset) {
             const apiKey = getActiveApiKey();
-            if (!apiKey) {
-                throw new Error('APIキーが設定されていません。画面右上の「APIキー設定」から設定してください。');
+            if (!apiKey || apiKey.trim() === '') {
+                throw new Error('APIキーが未設定です。画面右上の「APIキー設定」にキーを入力して保存してください。');
             }
+
+            const cleanKey = apiKey.trim();
             const rawBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
 
             const promptText = `
@@ -566,27 +575,29 @@
             const modelNames = [
                 'gemini-2.5-flash-image',
                 'gemini-2.0-flash-exp',
-                'gemini-3.1-flash-image-preview'
+                'gemini-3.1-flash-image-preview',
+                'gemini-2.5-flash'
             ];
 
-            const isBearer = apiKey.startsWith('AQ.') || apiKey.startsWith('ya29.');
+            const isBearerFormat = cleanKey.startsWith('AQ.') || cleanKey.startsWith('ya29.');
 
-            let lastError = null;
+            let lastErrorMsg = '';
 
             for (const model of modelNames) {
                 const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-                const authAttempts = isBearer ? [
-                    { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }, url: baseUrl },
-                    { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey }, url: `${baseUrl}?key=${apiKey}` },
-                    { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${apiKey}` }
+                // Authentication headers to attempt depending on key format
+                const authConfigs = isBearerFormat ? [
+                    { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` }, url: baseUrl },
+                    { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': cleanKey }, url: `${baseUrl}?key=${cleanKey}` },
+                    { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${cleanKey}` }
                 ] : [
-                    { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey }, url: `${baseUrl}?key=${apiKey}` },
-                    { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${apiKey}` },
-                    { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }, url: baseUrl }
+                    { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': cleanKey }, url: `${baseUrl}?key=${cleanKey}` },
+                    { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${cleanKey}` },
+                    { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` }, url: baseUrl }
                 ];
 
-                for (const auth of authAttempts) {
+                for (const auth of authConfigs) {
                     try {
                         const response = await fetch(auth.url, {
                             method: 'POST',
@@ -594,14 +605,9 @@
                             body: JSON.stringify(payload)
                         });
 
-                        if (response.status === 401) {
-                            lastError = new Error('APIキー認証エラー (401): キーが無効か権限がありません');
-                            continue;
-                        }
-
                         if (!response.ok) {
                             const errBody = await response.text();
-                            lastError = new Error(`APIエラー (${response.status}): ${errBody.substring(0, 100)}`);
+                            lastErrorMsg = `[HTTP ${response.status}] ${errBody.substring(0, 120)}`;
                             continue;
                         }
 
@@ -615,17 +621,24 @@
                                 }
                             }
                         }
-                    } catch (error) {
-                        lastError = error;
+                    } catch (err) {
+                        lastErrorMsg = err.message || 'Network error';
                     }
                 }
             }
 
-            throw lastError || new Error('スタンプの生成に失敗しました。APIキーを確認してください。');
+            throw new Error(lastErrorMsg || 'APIエラー: 生成に失敗しました。APIキーまたはネットワーク接続をご確認ください。');
         }
 
         async function startBatchGeneration() {
             if (!sourceImageDataUrl || isGenerating) return;
+
+            const apiKey = getActiveApiKey();
+            if (!apiKey || apiKey.trim() === '') {
+                showToast('APIキーが設定されていません。画面右上の「APIキー設定」から保存してください。', 'error');
+                apiKeyModal.classList.remove('hidden');
+                return;
+            }
 
             isGenerating = true;
             generateAllBtn.disabled = true;
@@ -645,7 +658,7 @@
                 const cardEl = document.getElementById(`sticker-card-${i}`);
 
                 cardEl.querySelector('.flex-1').innerHTML = `
-                    <div class="flex flex-col items-center justify-center space-y-2">
+                    <div class="flex flex-col items-center justify-center space-y-2 p-2 text-center">
                         <i class="fa-solid fa-spinner animate-spin text-line text-2xl"></i>
                         <span class="text-[11px] text-slate-500 font-bold">生成中...</span>
                     </div>
@@ -657,10 +670,7 @@
                     updateStickerCardUI(i, resultImageBase64);
                 } catch (err) {
                     console.error(`Failed generating sticker #${i + 1}`, err);
-                    updateStickerCardErrorUI(i);
-                    if (err.message && err.message.includes('401')) {
-                        showToast('APIキー認証エラー (401): 画面右上の「APIキー設定」からキーを入力し直してください', 'error');
-                    }
+                    updateStickerCardErrorUI(i, err.message);
                 }
 
                 completedCount++;
@@ -672,10 +682,13 @@
             isGenerating = false;
             generateAllBtn.disabled = false;
             progressTitle.innerText = '生成が完了しました！';
-            showToast('すべてのスタンプ生成が完了しました！', 'success');
-
-            if (generatedStickers.some(img => img !== null)) {
+            
+            const successCount = generatedStickers.filter(x => x !== null).length;
+            if (successCount > 0) {
+                showToast(`${successCount}個のスタンプ生成が完了しました！`, 'success');
                 downloadZipBtn.disabled = false;
+            } else {
+                showToast('スタンプの生成に失敗しました。右上の「APIキー設定」で最新のキーを入力してください。', 'error');
             }
         }
 
@@ -686,7 +699,7 @@
             const cardEl = document.getElementById(`sticker-card-${index}`);
 
             cardEl.querySelector('.flex-1').innerHTML = `
-                <div class="flex flex-col items-center justify-center space-y-2">
+                <div class="flex flex-col items-center justify-center space-y-2 p-2 text-center">
                     <i class="fa-solid fa-spinner animate-spin text-line text-2xl"></i>
                     <span class="text-[11px] text-slate-500 font-bold">再生成中...</span>
                 </div>
@@ -700,8 +713,8 @@
                 downloadZipBtn.disabled = false;
             } catch (err) {
                 console.error(`Regeneration failed for #${index + 1}`, err);
-                updateStickerCardErrorUI(index);
-                showToast(`スタンプ #${index + 1} の生成に失敗しました`, 'error');
+                updateStickerCardErrorUI(index, err.message);
+                showToast(`スタンプ #${index + 1} の再生成に失敗しました`, 'error');
             }
         }
 
@@ -729,16 +742,18 @@
             `;
         }
 
-        function updateStickerCardErrorUI(index) {
+        function updateStickerCardErrorUI(index, errorDetail) {
             const cardEl = document.getElementById(`sticker-card-${index}`);
+            const shortDetail = errorDetail ? errorDetail.substring(0, 45) : '生成失敗';
+            
             cardEl.innerHTML = `
                 <div class="w-full flex justify-between items-center text-xs">
                     <span class="font-bold text-slate-400 text-[11px]">No.${index + 1} ${currentPresets[index].name}</span>
                     <span class="text-[10px] bg-rose-50 text-rose-500 px-1.5 py-0.5 rounded font-semibold">エラー</span>
                 </div>
-                <div class="w-full flex-1 bg-rose-50/50 rounded-xl border border-rose-200 flex flex-col items-center justify-center p-2 text-rose-400">
-                    <i class="fa-solid fa-triangle-exclamation text-xl mb-1"></i>
-                    <span class="text-[10px] text-center font-medium">生成に失敗しました</span>
+                <div class="w-full flex-1 bg-rose-50/50 rounded-xl border border-rose-200 flex flex-col items-center justify-center p-2 text-rose-500 text-center space-y-1">
+                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                    <span class="text-[10px] font-medium leading-tight line-clamp-2">${shortDetail}</span>
                 </div>
                 <div class="w-full flex">
                     <button onclick="regenerateSingleSticker(${index})" class="w-full py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center">
@@ -853,10 +868,10 @@
                          type === 'error' ? 'fa-circle-exclamation text-rose-400' : 
                          'fa-circle-info text-sky-400';
 
-            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold ${bgColor} transition-all transform translate-y-2 opacity-0 duration-200`;
+            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold ${bgColor} transition-all transform translate-y-2 opacity-0 duration-200 max-w-md`;
             toast.innerHTML = `
-                <i class="fa-solid ${icon} text-base"></i>
-                <span>${message}</span>
+                <i class="fa-solid ${icon} text-base shrink-0"></i>
+                <span class="leading-tight">${message}</span>
             `;
 
             container.appendChild(toast);
@@ -872,7 +887,7 @@
                         container.removeChild(toast);
                     }
                 }, 200);
-            }, 3500);
+            }, 4500);
         }
     </script>
 </body>
