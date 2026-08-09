@@ -551,7 +551,10 @@
                 5. STYLE: High quality digital sticker illustration, crisp clean line art, vivid colors, well-centered composition.
             `;
 
-            const payload = {
+            const isBearer = cleanKey.startsWith('AQ.') || cleanKey.startsWith('ya29.');
+
+            // 1. Try Gemini 2.0 Flash Exp (Official multimodal image generation)
+            const geminiPayload = {
                 contents: [{
                     role: 'user',
                     parts: [
@@ -565,52 +568,33 @@
                     ]
                 }],
                 generationConfig: {
-                    responseModalities: ['IMAGE', 'TEXT'],
-                    imageConfig: {
-                        aspectRatio: "1:1"
-                    }
+                    responseModalities: ['IMAGE', 'TEXT']
                 }
             };
 
-            const modelNames = [
-                'gemini-2.5-flash-image',
-                'gemini-2.0-flash-exp',
-                'gemini-3.1-flash-image-preview',
-                'gemini-2.5-flash'
-            ];
+            const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent`;
 
-            const isBearerFormat = cleanKey.startsWith('AQ.') || cleanKey.startsWith('ya29.');
+            const authConfigs = isBearer ? [
+                { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` }, url: baseUrl },
+                { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${cleanKey}` },
+                { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': cleanKey }, url: `${baseUrl}?key=${cleanKey}` }
+            ] : [
+                { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${cleanKey}` },
+                { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': cleanKey }, url: `${baseUrl}?key=${cleanKey}` },
+                { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` }, url: baseUrl }
+            ];
 
             let lastErrorMsg = '';
 
-            for (const model of modelNames) {
-                const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+            for (const auth of authConfigs) {
+                try {
+                    const response = await fetch(auth.url, {
+                        method: 'POST',
+                        headers: auth.headers,
+                        body: JSON.stringify(geminiPayload)
+                    });
 
-                // Authentication headers to attempt depending on key format
-                const authConfigs = isBearerFormat ? [
-                    { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` }, url: baseUrl },
-                    { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': cleanKey }, url: `${baseUrl}?key=${cleanKey}` },
-                    { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${cleanKey}` }
-                ] : [
-                    { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': cleanKey }, url: `${baseUrl}?key=${cleanKey}` },
-                    { headers: { 'Content-Type': 'application/json' }, url: `${baseUrl}?key=${cleanKey}` },
-                    { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` }, url: baseUrl }
-                ];
-
-                for (const auth of authConfigs) {
-                    try {
-                        const response = await fetch(auth.url, {
-                            method: 'POST',
-                            headers: auth.headers,
-                            body: JSON.stringify(payload)
-                        });
-
-                        if (!response.ok) {
-                            const errBody = await response.text();
-                            lastErrorMsg = `[HTTP ${response.status}] ${errBody.substring(0, 120)}`;
-                            continue;
-                        }
-
+                    if (response.ok) {
                         const result = await response.json();
                         const candidates = result?.candidates || [];
                         for (const candidate of candidates) {
@@ -621,9 +605,49 @@
                                 }
                             }
                         }
-                    } catch (err) {
-                        lastErrorMsg = err.message || 'Network error';
+                    } else {
+                        const errBody = await response.text();
+                        lastErrorMsg = `[HTTP ${response.status}] ${errBody.substring(0, 100)}`;
                     }
+                } catch (err) {
+                    lastErrorMsg = err.message || 'Network error';
+                }
+            }
+
+            // 2. Fallback to Imagen 3 if Gemini 2.0 Flash Exp is unavailable
+            const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict`;
+            const imagenPayload = {
+                instances: [{
+                    prompt: `Digital sticker illustration of character with expression: ${preset.prompt}. Solid white background, clean line art, vivid color, no text.`
+                }],
+                parameters: { sampleCount: 1, aspectRatio: "1:1" }
+            };
+
+            const imagenConfigs = isBearer ? [
+                { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` }, url: imagenUrl },
+                { headers: { 'Content-Type': 'application/json' }, url: `${imagenUrl}?key=${cleanKey}` }
+            ] : [
+                { headers: { 'Content-Type': 'application/json' }, url: `${imagenUrl}?key=${cleanKey}` },
+                { headers: { 'Content-Type': 'application/json', 'X-goog-api-key': cleanKey }, url: `${imagenUrl}?key=${cleanKey}` }
+            ];
+
+            for (const auth of imagenConfigs) {
+                try {
+                    const response = await fetch(auth.url, {
+                        method: 'POST',
+                        headers: auth.headers,
+                        body: JSON.stringify(imagenPayload)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        const b64 = result?.predictions?.[0]?.bytesBase64Encoded || result?.predictions?.[0]?.bytes;
+                        if (b64) {
+                            return `data:image/png;base64,${b64}`;
+                        }
+                    }
+                } catch (err) {
+                    // Ignore and throw cumulative error below if all fail
                 }
             }
 
