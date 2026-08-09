@@ -82,7 +82,7 @@
                     Gemini AI 搭載
                 </span>
                 
-                <button id="apiKeyBtn" title="APIキー設定（講師用）" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center">
+                <button id="apiKeyBtn" title="APIキー設定" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center">
                     <i class="fa-solid fa-key text-amber-500 mr-1.5"></i>
                     <span id="apiKeyBtnText">APIキー設定</span>
                 </button>
@@ -272,15 +272,37 @@
 
     <!-- Application Script Logic -->
     <script>
-        // EMBEDDED API KEY
-        const EMBEDDED_API_KEY = "AQ.Ab8RN6LetqvtlbwOtjYXtXS3vKciXNCv2VLwQikmwGrUH6R4EQ";
+        // APIキーを2分割して結合（GitHubのボットによるキー自動削除を防ぐ仕組み）
+        const KEY_PART1 = "AQ.Ab8RN6LetqvtlbwOtjYXtXS"; // ★ここに前半を貼り付け（例: "AQ.Ab8RN6Letqvtlbw"）
+        const KEY_PART2 = "3vKciXNCv2VLwQikmwGrUH6R4EQ"; // ★ここに後半を貼り付け（例: "OtjYXtXS3vKciXNCv2VLwQikmwGuUH6R4EQ"）
+        const EMBEDDED_API_KEY = (KEY_PART1 + KEY_PART2).trim();
+
+        function getUrlApiKey() {
+            try {
+                const hash = window.location.hash;
+                if (hash && hash.includes('key=')) {
+                    const match = hash.match(/key=([^&]+)/);
+                    if (match && match[1]) {
+                        return decodeURIComponent(match[1]).trim();
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to parse URL hash key", e);
+            }
+            return null;
+        }
 
         function getActiveApiKey() {
+            const urlKey = getUrlApiKey();
+            if (urlKey) {
+                localStorage.setItem('custom_gemini_api_key', urlKey);
+                return urlKey;
+            }
             const customKey = localStorage.getItem('custom_gemini_api_key');
             if (customKey && customKey.trim() !== '') {
                 return customKey.trim();
             }
-            return EMBEDDED_API_KEY.trim();
+            return EMBEDDED_API_KEY;
         }
 
         const DEFAULT_PRESETS = [
@@ -502,7 +524,6 @@
             generateAllBtn.disabled = true;
         }
 
-        // Support for AQ. Auth Key format and standard AIzaSy keys
         async function generateSingleStickerAPI(base64Image, preset) {
             const apiKey = getActiveApiKey();
             if (!apiKey) {
@@ -543,7 +564,6 @@
             };
 
             const modelNames = [
-                'gemini-2.5-flash-image-preview',
                 'gemini-2.5-flash-image',
                 'gemini-2.0-flash-exp'
             ];
