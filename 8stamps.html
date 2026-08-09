@@ -232,9 +232,9 @@
 
     <!-- Application Script Logic -->
     <script>
-        // Split API Key to avoid GitHub automated revocation
-        const KEY_PART1 = "AQ.Ab8RN6LetqvtlbwOtjYXtXS"; 
-        const KEY_PART2 = "3vKciXNCv2VLwQikmwGrUH6R4EQ"; 
+        // ★ここにGoogle AI Studioで取得した AQ. から始まるAPIキーを半分に分けて入力してください
+        const KEY_PART1 = "AQ.Ab8RN6LetqvtlbwOtjYXtXS"; // 例: "AQ.Ab8RN6Letqvtlbw"
+        const KEY_PART2 = "3vKciXNCv2VLwQikmwGrUH6R4EQ"; // 例: "OtjYXtXS3vKciXNCv2VLwQikmwGuUH6R4EQ"
         const EMBEDDED_API_KEY = (KEY_PART1 + KEY_PART2).trim();
 
         function getActiveApiKey() {
@@ -257,7 +257,166 @@
         let generatedStickers = Array(8).fill(null);
         let isGenerating = false;
 
+        const dropzone = document.getElementById('dropzone');
+        const imageInput = document.getElementById('imageInput');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const previewContainer = document.getElementById('previewContainer');
+        const sourcePreview = document.getElementById('sourcePreview');
+        const removeImageBtn = document.getElementById('removeImageBtn');
+        const generateAllBtn = document.getElementById('generateAllBtn');
+        const progressSection = document.getElementById('progressSection');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressTitle = document.getElementById('progressTitle');
+        const stickersGrid = document.getElementById('stickersGrid');
+        const downloadZipBtn = document.getElementById('downloadZipBtn');
+
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const modalTitle = document.getElementById('modalTitle');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const modalDownloadBtn = document.getElementById('modalDownloadBtn');
+        let currentModalIndex = null;
+
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderEmptyStickersGrid();
+            setupEventListeners();
+        });
+
+        function renderEmptyStickersGrid() {
+            if (!stickersGrid) return;
+            stickersGrid.innerHTML = '';
+            currentPresets.forEach((preset, index) => {
+                const card = document.createElement('div');
+                card.id = `sticker-card-${index}`;
+                card.className = 'sticker-card bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex flex-col justify-between items-center space-y-2 h-56 relative overflow-hidden';
+                
+                if (generatedStickers[index]) {
+                    card.innerHTML = `
+                        <div class="w-full flex justify-between items-center text-xs">
+                            <span class="font-bold text-slate-700 text-[11px]">No.${index + 1} ${preset.name}</span>
+                        </div>
+                        <div class="w-full flex-1 bg-white rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center relative group cursor-pointer" onclick="openPreviewModal(${index})">
+                            <img src="${generatedStickers[index]}" class="w-full h-full object-contain p-1" alt="Sticker ${index + 1}">
+                            <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold space-x-1">
+                                <i class="fa-solid fa-magnifying-glass-plus"></i>
+                                <span>拡大</span>
+                            </div>
+                        </div>
+                        <div class="w-full flex space-x-1.5">
+                            <button onclick="downloadSingleSticker(${index})" class="flex-1 py-1.5 bg-line hover:bg-line-hover text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center justify-center">
+                                <i class="fa-solid fa-download mr-1"></i>保存
+                            </button>
+                            <button onclick="regenerateSingleSticker(${index})" title="再生成" class="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-colors">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="w-full flex justify-between items-center text-xs">
+                            <span class="font-bold text-slate-700 text-[11px]">No.${index + 1} ${preset.name}</span>
+                        </div>
+                        <div class="w-full flex-1 bg-slate-50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 p-2 text-center">
+                            <i class="fa-solid fa-face-smile text-2xl mb-1 text-slate-300"></i>
+                            <span class="text-[10px] text-slate-400 font-medium">${preset.name}</span>
+                        </div>
+                        <div class="w-full flex space-x-1.5 opacity-50 pointer-events-none">
+                            <button disabled class="flex-1 py-1.5 bg-slate-200 text-slate-400 rounded-lg text-xs font-bold flex items-center justify-center">
+                                <i class="fa-solid fa-download mr-1"></i>保存
+                            </button>
+                        </div>
+                    `;
+                }
+                stickersGrid.appendChild(card);
+            });
+        }
+
+        function setupEventListeners() {
+            dropzone.addEventListener('click', (e) => {
+                if (e.target !== imageInput) {
+                    imageInput.click();
+                }
+            });
+
+            imageInput.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('border-line', 'bg-line-light/40');
+            });
+            dropzone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('border-line', 'bg-line-light/40');
+            });
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('border-line', 'bg-line-light/40');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleImageFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            imageInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    handleImageFile(e.target.files[0]);
+                }
+            });
+
+            removeImageBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                resetImage();
+            });
+
+            generateAllBtn.addEventListener('click', startBatchGeneration);
+            downloadZipBtn.addEventListener('click', downloadAllZip);
+
+            closeModalBtn.addEventListener('click', () => imageModal.classList.add('hidden'));
+            imageModal.addEventListener('click', (e) => {
+                if (e.target === imageModal) imageModal.classList.add('hidden');
+            });
+            modalDownloadBtn.addEventListener('click', () => {
+                if (currentModalIndex !== null && generatedStickers[currentModalIndex]) {
+                    downloadSingleSticker(currentModalIndex);
+                }
+            });
+        }
+
+        function handleImageFile(file) {
+            if (!file.type || !file.type.startsWith('image/')) {
+                showToast('画像ファイル(PNG/JPGなど)を選択してください', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                sourceImageDataUrl = e.target.result;
+                sourcePreview.src = sourceImageDataUrl;
+                uploadPlaceholder.classList.add('hidden');
+                previewContainer.classList.remove('hidden');
+                generateAllBtn.disabled = false;
+                showToast('画像を読み込みました！スタンプ生成を実行できます', 'success');
+            };
+            reader.onerror = () => {
+                showToast('画像の読み込みに失敗しました。別の画像をお試しください。', 'error');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetImage() {
+            sourceImageDataUrl = null;
+            imageInput.value = '';
+            uploadPlaceholder.classList.remove('hidden');
+            previewContainer.classList.add('hidden');
+            generateAllBtn.disabled = true;
+        }
 
         async function generateSingleStickerAPI(base64Image, preset, retryCount = 0) {
             const apiKey = getActiveApiKey();
@@ -329,6 +488,7 @@
                             body: JSON.stringify(payload)
                         });
 
+                        // HTTP 429 制限にかかった場合は自動待機してリトライ
                         if (response.status === 429) {
                             if (retryCount < 4) {
                                 const waitTime = (retryCount + 1) * 4000;
@@ -411,7 +571,7 @@
                 progressBar.style.width = `${percent}%`;
                 progressPercent.innerText = `${completedCount} / 8`;
 
-                // 連続通信制限（429）を回避するための短時間のウェイト
+                // 連続通信制限（429）を回避するための2.5秒間のウェイト
                 if (i < 7) {
                     await sleep(2500);
                 }
